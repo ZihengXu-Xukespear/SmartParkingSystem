@@ -274,6 +274,17 @@ table tr:hover { background: var(--primary-light); }
 .badge-warning { background: #fffbe6; color: #d48806; border: 1px solid #ffe58f; }
 .badge-danger { background: #fff2f0; color: var(--danger); border: 1px solid #ffccc7; }
 .badge-primary { background: var(--primary-light); color: var(--primary); border: 1px solid #87e8de; }
+.badge-default { background: #fafafa; color: #666; border: 1px solid #d9d9d9; }
+
+.reservation-urgent {
+    background: #fff2f0; color: var(--danger); border: 1px solid #ffccc7;
+    animation: pulse-urgent 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-urgent {
+    from { background: #fff2f0; }
+    to { background: #ffccc7; }
+}
 
 /* Modal */
 .modal-overlay {

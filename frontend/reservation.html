@@ -67,8 +67,14 @@
                 </div>
             </div>
 
-            <!-- Reservations Table -->
-            <div class="card">
+            <!-- Reservation Tabs -->
+            <div class="tabs" style="margin-top:16px">
+                <div class="tab active" onclick="switchReservationTab('active',event)">当前预约</div>
+                <div class="tab" onclick="switchReservationTab('history',event)">历史记录</div>
+            </div>
+
+            <!-- Active Reservations -->
+            <div class="card" id="tab-active-reservations">
                 <div class="card-title">预约列表</div>
                 <div class="table-wrapper">
                     <table>
@@ -83,6 +89,35 @@
                             </tr>
                         </thead>
                         <tbody id="reservations-table">
+                            <tr><td colspan="6" class="loading">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- History Reservations -->
+            <div class="card hidden" id="tab-history-reservations">
+                <div class="card-title">历史记录</div>
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+                    <label style="font-size:13px">开始:</label>
+                    <input type="date" id="hist-start" class="form-control" style="width:150px">
+                    <label style="font-size:13px">结束:</label>
+                    <input type="date" id="hist-end" class="form-control" style="width:150px">
+                    <button class="btn btn-primary btn-sm" onclick="loadHistory()">查询</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>车牌号</th>
+                                <th>停车场</th>
+                                <th>状态</th>
+                                <th>预付</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table">
                             <tr><td colspan="6" class="loading">加载中...</td></tr>
                         </tbody>
                     </table>
@@ -169,6 +204,49 @@
             }
         }
 
+        // Tab switching
+        function switchReservationTab(tab, ev) {
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            if (ev && ev.target) ev.target.classList.add('active');
+            document.getElementById('tab-active-reservations').classList.toggle('hidden', tab !== 'active');
+            document.getElementById('tab-history-reservations').classList.toggle('hidden', tab !== 'history');
+            if (tab === 'history') {
+                const today = new Date().toISOString().split('T')[0];
+                const d30 = new Date(Date.now() - 29*86400000).toISOString().split('T')[0];
+                if (!document.getElementById('hist-start').value) document.getElementById('hist-start').value = d30;
+                if (!document.getElementById('hist-end').value) document.getElementById('hist-end').value = today;
+                loadHistory();
+            }
+        }
+
+        // Load history
+        async function loadHistory() {
+            const start = document.getElementById('hist-start').value || '';
+            const end = document.getElementById('hist-end').value || '';
+            const params = new URLSearchParams();
+            if (start) params.set('start', start);
+            if (end) params.set('end', end);
+            const res = await get('/api/reservation/history?' + params.toString());
+            const tbody = document.getElementById('history-table');
+            if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="6">加载失败</td></tr>'; return; }
+            const list = res.data.reservations || [];
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:#999">暂无历史记录</td></tr>'; return; }
+            const statusBadge = {
+                'completed': 'badge-success', 'expired': 'badge-warning', 'cancelled': 'badge-danger'
+            };
+            const statusLabel = {
+                'completed': '已完成', 'expired': '已过期', 'cancelled': '已取消'
+            };
+            tbody.innerHTML = list.map(r => '<tr>' +
+                '<td>' + r.id + '</td>' +
+                '<td><strong>' + r.license_plate + '</strong></td>' +
+                '<td>' + r.P_name + '</td>' +
+                '<td><span class="badge ' + (statusBadge[r.status] || 'badge-default') + '">' + (statusLabel[r.status] || r.status) + '</span></td>' +
+                '<td>¥' + parseFloat(r.prepaid).toFixed(2) + '</td>' +
+                '<td>' + formatDateTime(r.created_at) + '</td>' +
+            '</tr>').join('');
+        }
+
         // Cancel reservation
         async function cancelReservation(id) {
             if (!confirm('确定要取消此预约吗？\n\n预付费用将不予退还。')) return;
@@ -187,12 +265,83 @@
             if (e.key === 'Enter') createReservation();
         });
 
+        // Store last fetched reservations for client-side countdown
+        let _reservations = [];
+        let _reservationExpireMs = 30 * 60 * 1000;
+
+        function updateCountdowns() {
+            const now = Date.now();
+            let needRefresh = false;
+            const rows = document.querySelectorAll('#reservations-table tr[data-expire-ms]');
+            rows.forEach(row => {
+                const expireMs = parseInt(row.dataset.expireMs);
+                const remain = Math.max(0, expireMs - now);
+                const totalSec = Math.floor(remain / 1000);
+                const mins = Math.floor(totalSec / 60);
+                const secs = totalSec % 60;
+                const badge = row.querySelector('.countdown-badge');
+                if (badge) {
+                    if (remain <= 0) {
+                        badge.textContent = '已过期';
+                        badge.className = 'badge badge-danger countdown-badge';
+                        needRefresh = true;
+                    } else {
+                        badge.textContent = mins + ':' + String(secs).padStart(2, '0');
+                        if (remain < 5 * 60 * 1000) {
+                            badge.className = 'badge reservation-urgent countdown-badge';
+                        } else {
+                            badge.className = 'badge badge-success countdown-badge';
+                        }
+                    }
+                }
+            });
+            if (needRefresh) { loadReservations(); loadStatus(); }
+        }
+
+        // Override loadReservations to store data and use per-second countdown
+        loadReservations = async function() {
+            const res = await get('/api/reservation/list');
+            const tbody = document.getElementById('reservations-table');
+            if (!res || !res.ok) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">加载失败</td></tr>';
+                _reservations = [];
+                return;
+            }
+            const list = res.data.reservations || [];
+            _reservations = list;
+            _reservationExpireMs = (window._expireMinutes || 30) * 60 * 1000;
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无预约</td></tr>';
+                return;
+            }
+            const now = Date.now();
+            tbody.innerHTML = list.map(r => {
+                const created = new Date(r.created_at.replace(' ', 'T'));
+                const expireMs = created.getTime() + _reservationExpireMs;
+                const remain = Math.max(0, expireMs - now);
+                const totalSec = Math.floor(remain / 1000);
+                const mins = Math.floor(totalSec / 60);
+                const secs = totalSec % 60;
+                const badgeClass = remain <= 0 ? 'badge-danger' : remain < 5*60*1000 ? 'reservation-urgent' : 'badge-success';
+                const badgeText = remain <= 0 ? '已过期' : mins + ':' + String(secs).padStart(2, '0');
+                return '<tr data-expire-ms="' + expireMs + '">' +
+                    '<td>' + r.id + '</td>' +
+                    '<td><strong>' + r.license_plate + '</strong></td>' +
+                    '<td>' + r.P_name + '</td>' +
+                    '<td>' + formatDateTime(r.created_at) + '</td>' +
+                    '<td><span class="badge ' + badgeClass + ' countdown-badge">' + badgeText + '</span></td>' +
+                    '<td><button class="btn btn-danger btn-sm" onclick="cancelReservation(' + r.id + ')">取消</button></td>' +
+                '</tr>';
+            }).join('');
+        };
+
         // Init
         loadStatus();
         loadReservations();
 
-        // Auto refresh
+        // Status refresh every 10s; countdown updates every 1s
         setInterval(() => { loadStatus(); loadReservations(); }, 10000);
+        setInterval(() => { updateCountdowns(); }, 1000);
     </script>
 </body>
 </html>
