@@ -13,8 +13,14 @@ function switchTab(tab, ev) {
     if(tab==='users') loadUsers(); else if(tab==='recharge') loadUsersForRecharge();
     else if(tab==='billing') loadBillingRules(); else if(tab==='passes') loadPasses();
     else if(tab==='plans') loadPlans(); else if(tab==='vehicles') loadVehicles('all');
-    else if(tab==='blacklist') loadBlacklist(); else if(tab==='reports') loadReports();
-    else if(tab==='notice') loadNotice();
+    else if(tab==='blacklist') { loadBlacklist(); loadInterceptions(); }
+    else if(tab==='reports') { loadReports();
+        const today = new Date().toISOString().split('T')[0];
+        const d30 = new Date(Date.now() - 29*86400000).toISOString().split('T')[0];
+        if (!document.getElementById('export-start').value) document.getElementById('export-start').value = d30;
+        if (!document.getElementById('export-end').value) document.getElementById('export-end').value = today;
+    }
+    else if(tab==='notice') loadBulletins();
 }
 
 // ========== Users ==========
@@ -230,6 +236,8 @@ document.addEventListener('click',function(e){
     else if(t.classList.contains('btn-delete-pass')) { deactivatePass(parseInt(row.dataset.passId)); }
     else if(t.classList.contains('btn-remove-blacklist')) { removeBlacklist(parseInt(row.dataset.blId)); }
     else if(t.classList.contains('btn-checkout-vehicle')) { checkoutVehicle(row.cells[0].textContent.trim()); }
+    else if(t.classList.contains('btn-edit-bulletin')) { openBulletinModal(parseInt(row.dataset.bulletinId)); }
+    else if(t.classList.contains('btn-delete-bulletin')) { deleteBulletin(parseInt(row.dataset.bulletinId)); }
 });
 
 async function deleteUser(id) { if(!confirm('确定删除用户(ID:'+id+')？'))return; const r=await del('/api/user/'+id); if(r&&r.ok){showSuccess('alert-box','已删除');loadUsers();} else showError('alert-box',r?.data?.error||'删除失败'); }
@@ -237,18 +245,99 @@ async function deletePlan(id) { if(!confirm('确定删除此套餐？'))return; 
 async function deactivatePass(id) { if(!confirm('确定停用此月卡？停用后该车牌恢复收费。'))return; const r=await del('/api/parking/monthly-passes/'+id); if(r&&r.ok){showSuccess('alert-box','月卡已停用');loadPasses();} else showError('alert-box','停用失败'); }
 async function removeBlacklist(id) { if(!confirm('确定移除？'))return; const r=await del('/api/blacklist/'+id); if(r&&r.ok){showSuccess('alert-box','已移除');loadBlacklist();} }
 
-// ========== Notice ==========
-async function loadNotice() {
-    const res = await get('/api/bulletin');
-    if (res && res.ok) {
-        document.getElementById('notice-editor').value = res.data.notice || '';
-    }
+async function loadInterceptions() {
+    const res = await get('/api/blacklist/interceptions');
+    const tbody = document.getElementById('interception-table');
+    if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>'; return; }
+    const list = res.data.interceptions || [];
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="color:#999">暂无拦截记录</td></tr>'; return; }
+    tbody.innerHTML = list.map(l => '<tr><td>' + l.id + '</td><td><strong>' + escapeHtml(l.license_plate) + '</strong></td><td>' + escapeHtml(l.reason || '-') + '</td><td>' + formatDateTime(l.intercepted_at) + '</td></tr>').join('');
 }
-async function saveNotice() {
-    const notice = document.getElementById('notice-editor').value.trim();
-    const r = await put('/api/bulletin', { notice });
-    if (r && r.ok) showSuccess('notice-alert', '公告已更新');
-    else showError('notice-alert', r?.data?.error || '更新失败');
+
+async function exportReport() {
+    const start = document.getElementById('export-start').value || '';
+    const end = document.getElementById('export-end').value || '';
+    const token = localStorage.getItem('token');
+    const params = new URLSearchParams();
+    if (start) params.set('start', start);
+    if (end) params.set('end', end);
+    const url = '/api/report/export' + (params.toString() ? '?' + params.toString() : '');
+    const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!resp.ok) { showError('export-alert', '导出失败'); return; }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'report' + (start ? '_' + start : '') + (end ? '_' + end : '') + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
+// ========== Bulletin ==========
+async function loadBulletins() {
+    const res = await get('/api/bulletin/all');
+    const tbody = document.getElementById('bulletin-table');
+    if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="6">加载失败</td></tr>'; return; }
+    const list = res.data.bulletins || [];
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:#999">暂无公告</td></tr>'; return; }
+    tbody.innerHTML = list.map(b => `<tr data-bulletin-id="${b.id}">
+        <td>${b.id}</td>
+        <td>${escapeHtml((b.content||'').substring(0, 50))}${(b.content||'').length > 50 ? '...' : ''}</td>
+        <td>${b.is_pinned ? '<span class="badge badge-danger">置顶</span>' : '<span class="badge badge-default">否</span>'}</td>
+        <td>${b.valid_from ? formatDateTime(b.valid_from) : '-'}</td>
+        <td>${b.valid_until ? formatDateTime(b.valid_until) : '-'}</td>
+        <td><button class="btn btn-default btn-sm btn-edit-bulletin">编辑</button> <button class="btn btn-danger btn-sm btn-delete-bulletin">删除</button></td>
+    </tr>`).join('');
+}
+function openBulletinModal(id) {
+    document.getElementById('edit-bulletin-id').value = id || '';
+    document.getElementById('bulletin-modal-title').textContent = id ? '编辑公告' : '新建公告';
+    if (id) {
+        const row = document.querySelector(`tr[data-bulletin-id="${id}"]`);
+        if (row) {
+            document.getElementById('bulletin-content-input').value = '';
+            document.getElementById('bulletin-valid-from').value = '';
+            document.getElementById('bulletin-valid-until').value = '';
+            document.getElementById('bulletin-is-pinned').checked = row.cells[2].textContent.includes('置顶');
+        }
+        // Fetch full content for editing
+        get('/api/bulletin/all').then(res => {
+            if (res && res.ok) {
+                const b = (res.data.bulletins || []).find(x => x.id === id);
+                if (b) {
+                    document.getElementById('bulletin-content-input').value = b.content || '';
+                    document.getElementById('bulletin-valid-from').value = b.valid_from ? b.valid_from.replace(' ', 'T').substring(0, 16) : '';
+                    document.getElementById('bulletin-valid-until').value = b.valid_until ? b.valid_until.replace(' ', 'T').substring(0, 16) : '';
+                    document.getElementById('bulletin-is-pinned').checked = !!b.is_pinned;
+                }
+            }
+        });
+    } else {
+        document.getElementById('bulletin-content-input').value = '';
+        document.getElementById('bulletin-valid-from').value = '';
+        document.getElementById('bulletin-valid-until').value = '';
+        document.getElementById('bulletin-is-pinned').checked = false;
+    }
+    showModal('bulletin-modal');
+}
+async function saveBulletin() {
+    const id = document.getElementById('edit-bulletin-id').value;
+    const content = document.getElementById('bulletin-content-input').value.trim();
+    const is_pinned = document.getElementById('bulletin-is-pinned').checked;
+    const valid_from = document.getElementById('bulletin-valid-from').value;
+    const valid_until = document.getElementById('bulletin-valid-until').value;
+    if (!content) { showError('notice-alert', '内容不能为空'); return; }
+    const body = { content, is_pinned, valid_from: valid_from || '', valid_until: valid_until || '' };
+    let r;
+    if (id) r = await put('/api/bulletin/' + id, body);
+    else r = await post('/api/bulletin', body);
+    if (r && r.ok) { hideModal('bulletin-modal'); showSuccess('notice-alert', id ? '公告已更新' : '公告已创建'); loadBulletins(); }
+    else showError('notice-alert', r?.data?.error || '保存失败');
+}
+async function deleteBulletin(id) {
+    if (!confirm('确定删除此公告？')) return;
+    const r = await del('/api/bulletin/' + id);
+    if (r && r.ok) { showSuccess('notice-alert', '公告已删除'); loadBulletins(); }
+    else showError('notice-alert', r?.data?.error || '删除失败');
 }
 
 loadUsers();

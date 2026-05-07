@@ -118,6 +118,12 @@
         <div class="table-wrapper" style="margin-top:16px"><table><thead><tr>
             <th>ID</th><th>车牌号</th><th>原因</th><th>添加时间</th><th>操作</th>
         </tr></thead><tbody id="blacklist-table"><tr><td colspan="5">加载中...</td></tr></tbody></table></div>
+        <div class="card" style="margin-top:16px">
+            <div class="card-title">拦截记录</div>
+            <div class="table-wrapper"><table><thead><tr>
+                <th>ID</th><th>车牌号</th><th>拦截原因</th><th>拦截时间</th>
+            </tr></thead><tbody id="interception-table"><tr><td colspan="4">加载中...</td></tr></tbody></table></div>
+        </div>
     </div>
 </div>
 
@@ -136,19 +142,44 @@
     <div class="card" style="margin-top:16px"><div class="card-title">近30天收入趋势</div>
         <div class="chart-container" id="revenue-chart" style="height:300px"></div>
     </div>
+    <div class="card" style="margin-top:16px">
+        <div class="card-title">导出报表</div>
+        <div id="export-alert"></div>
+        <div class="form-row">
+            <div class="form-group"><label>开始日期</label><input type="date" id="export-start" class="form-control"></div>
+            <div class="form-group"><label>结束日期</label><input type="date" id="export-end" class="form-control"></div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="exportReport()">导出报表 (CSV)</button>
+    </div>
 </div>
 
     <!-- Notice Tab -->
     <div id="tab-notice" class="hidden">
         <div class="card">
-            <div class="card-title">编辑公告栏 <span style="font-weight:normal;font-size:12px;color:#999">（显示在主面板右侧）</span></div>
+            <div class="card-title">公告管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openBulletinModal(0)">新建公告</button></div>
             <div id="notice-alert"></div>
-            <div class="form-group">
-                <textarea id="notice-editor" class="form-control" rows="8" style="width:100%;font-size:14px" placeholder="输入公告内容..."></textarea>
-            </div>
-            <button class="btn btn-primary" onclick="saveNotice()">保存公告</button>
+            <div class="table-wrapper"><table><thead><tr>
+                <th>ID</th><th>内容预览</th><th>置顶</th><th>生效时间</th><th>到期时间</th><th>操作</th>
+            </tr></thead><tbody id="bulletin-table"><tr><td colspan="6">加载中...</td></tr></tbody></table></div>
         </div>
     </div>
+
+    <!-- Bulletin Modal -->
+    <div class="modal-overlay" id="bulletin-modal"><div class="modal">
+        <div class="modal-header"><h3 id="bulletin-modal-title">编辑公告</h3><button class="modal-close" onclick="hideModal('bulletin-modal')">&times;</button></div>
+        <div class="modal-body">
+            <input type="hidden" id="edit-bulletin-id">
+            <div class="form-group"><label>内容 (支持 Markdown)</label>
+                <textarea id="bulletin-content-input" class="form-control" rows="6" style="width:100%;font-size:14px" placeholder="输入公告内容...支持 **粗体**、换行等 Markdown 格式"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>生效时间</label><input type="datetime-local" id="bulletin-valid-from" class="form-control"></div>
+                <div class="form-group"><label>到期时间</label><input type="datetime-local" id="bulletin-valid-until" class="form-control"></div>
+            </div>
+            <div class="form-group"><label><input type="checkbox" id="bulletin-is-pinned"> 置顶</label></div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('bulletin-modal')">取消</button><button class="btn btn-primary" onclick="saveBulletin()">保存</button></div>
+    </div></div>
 
 </div>
 </div>
