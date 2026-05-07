@@ -34,4 +34,24 @@ void BlacklistController::registerRoutes(crow::SimpleApp& app) {
             return BaseController::errorResponse(400, "移除失败");
         return BaseController::successResponse("已移除");
     });
+
+    CROW_ROUTE(app, "/api/blacklist/interceptions").methods("GET"_method)([](const crow::request& req) {
+        if (!BaseController::checkPermission(req, Permissions::BLACKLIST_MANAGE))
+            return BaseController::errorResponse(403, "权限不足");
+        auto list = BlacklistService::instance().getRecentInterceptions(100);
+        crow::json::wvalue res;
+        std::vector<crow::json::wvalue> arr;
+        for (auto& l : list) arr.push_back(l.serialize());
+        res["interceptions"] = std::move(arr);
+        return crow::response(res);
+    });
+
+    CROW_ROUTE(app, "/api/blacklist/interceptions/count").methods("GET"_method)([](const crow::request& req) {
+        if (!BaseController::checkPermission(req, Permissions::BLACKLIST_MANAGE))
+            return BaseController::errorResponse(403, "权限不足");
+        int count = BlacklistService::instance().getRecentInterceptionCount(24);
+        crow::json::wvalue res;
+        res["count"] = count;
+        return crow::response(res);
+    });
 }

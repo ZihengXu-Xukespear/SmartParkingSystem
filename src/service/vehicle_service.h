@@ -15,6 +15,7 @@ public:
     bool checkOut(const std::string& plate, int userId, double& fee, CarRecord& record, std::string& error);
     std::vector<CarRecord> queryRecords(const std::string& plate, const std::string& start_date, const std::string& end_date);
     bool deleteRecord(int id);
+
 protected:
     CarRecord mapRow(MYSQL_ROW row) override;
 private:

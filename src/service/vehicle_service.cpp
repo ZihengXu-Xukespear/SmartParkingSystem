@@ -12,8 +12,10 @@ VehicleService& VehicleService::instance() {
 bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, std::string& error) {
     if (!validatePlate(plate)) { error = "车牌号格式不正确"; return false; }
 
-    if (BlacklistService::instance().isBlacklisted(plate)) {
+    std::string blReason;
+    if (BlacklistService::instance().isBlacklisted(plate, &blReason)) {
         error = "该车辆已被列入黑名单，禁止入库";
+        BlacklistService::instance().logInterception(plate, blReason);
         return false;
     }
 
