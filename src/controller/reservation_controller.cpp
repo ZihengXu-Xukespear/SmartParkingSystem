@@ -40,4 +40,16 @@ void ReservationController::registerRoutes(crow::SimpleApp& app) {
             return BaseController::errorResponse(400, "取消失败");
         return BaseController::successResponse("取消成功（预付不退还）");
     });
+
+    CROW_ROUTE(app, "/api/reservation/history").methods("GET"_method)([](const crow::request& req) {
+        if (!BaseController::checkPermission(req, Permissions::RESERVATION_VIEW))
+            return BaseController::errorResponse(403, "权限不足");
+        auto start = req.url_params.get("start");
+        auto end   = req.url_params.get("end");
+        auto history = ReservationService::instance().getHistory(
+            start ? start : "", end ? end : "", 200, 0);
+        crow::json::wvalue res;
+        res["reservations"] = BaseController::toJsonArray(history);
+        return crow::response(res);
+    });
 }
