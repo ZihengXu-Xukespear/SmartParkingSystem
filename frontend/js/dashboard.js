@@ -29,6 +29,8 @@ function applyPermUI() {
     document.getElementById('card-balance').style.display = hasPerm('balance.view') ? '' : 'none';
     document.getElementById('card-recent-records').style.display = hasPerm('vehicle.query') ? '' : 'none';
     document.getElementById('card-settings').style.display = hasPerm('parking.settings') ? '' : 'none';
+    document.getElementById('card-prediction').style.display = hasPerm('report.view') ? '' : 'none';
+    document.getElementById('card-interceptions').style.display = hasPerm('vehicle.blacklist') ? '' : 'none';
     // Bulletin is visible to everyone
     document.getElementById('card-plate-recognition').style.display = hasPerm('plate.recognize') ? '' : 'none';
 }
@@ -187,7 +189,36 @@ async function loadBulletin() {
     if (!container) return;
     const res = await get('/api/bulletin');
     if (res && res.ok) {
-        container.textContent = res.data.notice || '暂无公告';
+        const bulletins = res.data.bulletins || [];
+        if (bulletins.length === 0) {
+            container.innerHTML = '<p style="color:#999">暂无公告</p>';
+            return;
+        }
+        // Render each bulletin with markdown support
+        container.innerHTML = bulletins.map((b, i) => {
+            const mdHtml = typeof marked !== 'undefined' ? marked.parse(b.content) : b.content.replace(/\n/g, '<br>');
+            const pinBadge = b.is_pinned ? '<span style="color:#ff4d4f;font-size:11px;margin-right:4px">[置顶]</span>' : '';
+            return '<div style="' + (i > 0 ? 'margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0' : '') + '">' +
+                pinBadge + '<div style="font-size:13px;line-height:1.8">' + mdHtml + '</div>';
+        }).join('') + '</div>';
+    }
+}
+
+async function loadPrediction() {
+    if (!hasPerm('report.view')) return;
+    const res = await get('/api/report/prediction');
+    if (res && res.ok) {
+        document.getElementById('predicted-total').textContent = '¥' + parseFloat(res.data.predicted_monthly).toFixed(2);
+        document.getElementById('predicted-daily-avg').textContent = '¥' + parseFloat(res.data.daily_average).toFixed(2);
+        document.getElementById('predicted-days-remaining').textContent = res.data.days_remaining;
+    }
+}
+
+async function loadInterceptionCount() {
+    if (!hasPerm('vehicle.blacklist')) return;
+    const res = await get('/api/blacklist/interceptions/count');
+    if (res && res.ok) {
+        document.getElementById('interception-count').textContent = res.data.count;
     }
 }
 
@@ -363,6 +394,8 @@ loadRecentRecords();
 loadBalance();
 loadPassPlans();
 loadBulletin();
+loadPrediction();
+loadInterceptionCount();
 renderMyVehicles();
 setInterval(() => { loadStatus(); }, 10000);
-setInterval(() => { renderMyVehicles(); }, 30000);
+setInterval(() => { renderMyVehicles(); loadPrediction(); loadInterceptionCount(); }, 30000);

@@ -6,6 +6,7 @@
     <title>主面板 - Smart Parking</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -176,10 +177,31 @@
                         <button class="btn btn-primary btn-sm" onclick="updateSettings()">保存设置</button>
                     </div>
 
+                    <!-- Interception Stats (admin/operator only) -->
+                    <div class="card" id="card-interceptions" style="display:none">
+                        <div class="card-title">今日拦截统计</div>
+                        <div style="text-align:center;padding:12px">
+                            <div style="font-size:28px;color:#ff4d4f;font-weight:bold" id="interception-count">0</div>
+                            <div style="font-size:12px;color:#999">24小时内拦截次数</div>
+                        </div>
+                    </div>
+
+                    <!-- Revenue Prediction -->
+                    <div class="card" id="card-prediction" style="display:none">
+                        <div class="card-title">本月收入预测</div>
+                        <div style="text-align:center;padding:12px">
+                            <div style="font-size:12px;color:#999">基于近30天日均收入</div>
+                            <div style="font-size:26px;color:#1890ff;font-weight:bold" id="predicted-total">-</div>
+                            <div style="font-size:12px;color:#666;margin-top:4px">
+                                日均: <span id="predicted-daily-avg">-</span> | 剩余 <span id="predicted-days-remaining">-</span> 天
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Bulletin Board -->
                     <div class="card" id="card-bulletin">
                         <div class="card-title">公告栏</div>
-                        <div id="bulletin-content" style="font-size:13px;line-height:1.8;white-space:pre-wrap">
+                        <div id="bulletin-content">
                             <p style="color:#999">加载中...</p>
                         </div>
                     </div>
