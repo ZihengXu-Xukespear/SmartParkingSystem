@@ -53,8 +53,8 @@ target_include_directories(smart_parking PRIVATE
 # Link MySQL + system libs
 if(WIN32)
     target_link_libraries(smart_parking PRIVATE
-        ${MYSQL_LIB_DIR}/mysqlclient.lib
-        ws2_32 secur32 bcrypt crypt32
+        ${MYSQL_LIB_DIR}/libmysql.a
+        ws2_32 secur32 bcrypt crypt32 mswsock
     )
 else()
     target_link_libraries(smart_parking PRIVATE

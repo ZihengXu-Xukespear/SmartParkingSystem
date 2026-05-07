@@ -110,6 +110,7 @@ int main() {
             // Initialize database pool
             if (MySQLPool::instance().init(AppConfig::instance())) {
                 std::cout << "[OK] 数据库连接成功\n";
+                DBInit::createTables(AppConfig::instance());
             } else {
                 std::cout << "[WARN] 数据库连接失败，请检查配置\n";
                 initialized = false;
