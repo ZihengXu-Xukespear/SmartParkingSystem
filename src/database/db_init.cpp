@@ -221,6 +221,13 @@ bool DBInit::createTables(const AppConfig& cfg) {
         mysql_query(mysql, noticeSql.c_str());
     }
 
+    // Migrations: add columns missing from older schemas (ignore errors if already exist)
+    mysql_query(mysql, "ALTER TABLE USER ADD COLUMN balance DECIMAL(10,2) DEFAULT 0.00");
+    mysql_query(mysql, "ALTER TABLE CAR_RECORD ADD COLUMN exit_deadline DATETIME DEFAULT NULL");
+    mysql_query(mysql, "ALTER TABLE CAR_RECORD ADD COLUMN reservation_id INT DEFAULT NULL");
+    mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN prepaid DECIMAL(10,2) DEFAULT 0.00");
+    mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
+
     mysql_query(mysql, "SET GLOBAL event_scheduler = ON");
     mysql_query(mysql, "DROP EVENT IF EXISTS clean_expired_reservations");
     {
