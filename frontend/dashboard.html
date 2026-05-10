@@ -251,5 +251,90 @@
 
     <script src="/js/common.js"></script>
     <script src="/js/dashboard.js"></script>
+
+    <!-- 停车计费 & 离场扣费 -->
+    <script>
+        // 车辆出库自动计算费用 + 扣费
+        async function doCheckoutWithFee(plate) {
+            try {
+                // 1. 获取当前登录用户信息
+                let user = await apiGet("/api/auth/info");
+                let userId = user.id;
+
+                // 2. 获取车辆最新记录
+                let records = await apiGet("/api/vehicle/recent?plate=" + plate);
+                if (!records || records.length === 0) {
+                    showAlert("vehicle-alert", "无此车辆记录", "error");
+                    return;
+                }
+
+                let last = records[0];
+                if (last.status === "left") {
+                    showAlert("vehicle-alert", "车辆已出库", "error");
+                    return;
+                }
+
+                // 3. 入场 / 离场时间
+                let inTime = new Date(last.in_time).getTime() / 1000;
+                let outTime = Math.floor(Date.now() / 1000);
+
+                // 4. 调用任务D接口 → 计算停车费
+                let feeRes = await apiPost("/api/balance/calculate-fee", {
+                    in_time: inTime,
+                    out_time: outTime
+                });
+
+                let fee = feeRes.fee || 0;
+                let rule = feeRes.rule || "标准计费";
+
+                // 5. 显示计费信息
+                alert(`
+【停车计费】
+车牌：${plate}
+入场：${last.in_time}
+离场：${new Date().toLocaleString()}
+费用：${fee.toFixed(2)} 元
+规则：${rule}
+                `);
+
+                // 6. 执行任务D核心：扣费
+                let deductRes = await apiPost("/api/balance/parking-deduct", {
+                    in_time: inTime,
+                    out_time: outTime,
+                    license_plate: plate
+                });
+
+                if (deductRes.code === 0) {
+                    alert(deductRes.message + "\n" + (deductRes.pass_info || "") + "\n余额：" + deductRes.balance);
+                    loadRecentRecords();
+                    loadUserBalance();
+                } else {
+                    alert("扣费失败：" + deductRes.message);
+                }
+
+            } catch (e) {
+                console.error(e);
+                showAlert("vehicle-alert", "操作失败：" + e.message, "error");
+            }
+        }
+    </script>
+
+    <script>
+        // 覆盖车辆出库按钮，自动使用任务D计费逻辑
+        document.addEventListener("DOMContentLoaded", function () {
+            let btnCheckout = document.getElementById("btn-checkout");
+            if (btnCheckout) {
+                btnCheckout.onclick = function () {
+                    let plate = document.getElementById("plate-input").value.trim();
+                    if (!plate) {
+                        showAlert("vehicle-alert", "请输入车牌号", "error");
+                        return;
+                    }
+                    doCheckoutWithFee(plate); // 调用任务D
+                };
+            }
+        });
+    </script>
+
 </body>
 </html>

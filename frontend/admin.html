@@ -1,224 +1,380 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理页面 - Smart Parking</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
 <body>
-<div class="app-container">
-<div class="sidebar">
-    <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
-    <div class="sidebar-nav">
-        <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
-        <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
-        <a class="nav-item active" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
-        <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
-        <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
-    </div>
-    <div class="sidebar-footer">
-        <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
-        <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
-    </div>
-</div>
-<div class="main-content">
-<div class="page-header"><h1>管理页面</h1><p>用户、套餐、计费、黑名单与统计</p></div>
-
-<div class="tabs">
-    <div class="tab active" onclick="switchTab('users',event)">用户管理</div>
-    <div class="tab" onclick="switchTab('recharge',event)">余额充值</div>
-    <div class="tab" onclick="switchTab('plans',event)">套餐管理</div>
-    <div class="tab" onclick="switchTab('billing',event)">计费规则</div>
-    <div class="tab" onclick="switchTab('vehicles',event)">车辆管理</div>
-    <div class="tab" onclick="switchTab('passes',event)">月卡管理</div>
-    <div class="tab" onclick="switchTab('blacklist',event)">黑名单</div>
-    <div class="tab" onclick="switchTab('reports',event)">收入统计</div>
-    <div class="tab" onclick="switchTab('notice',event)">公告编辑</div>
-</div>
-<div id="alert-box"></div>
-
-<!-- Users Tab -->
-<div id="tab-users">
-    <div class="card">
-        <div class="card-title">用户信息 <button class="btn btn-primary btn-sm" style="float:right" onclick="showModal('user-modal')">添加用户</button></div>
-        <div class="table-wrapper"><table><thead><tr>
-            <th>ID</th><th>用户名</th><th>手机号</th><th>真实姓名</th><th>角色</th><th>余额</th><th>注册时间</th><th>操作</th>
-        </tr></thead><tbody id="users-table"><tr><td colspan="8">加载中...</td></tr></tbody></table></div>
-    </div>
-</div>
-
-<!-- Recharge Tab -->
-<div id="tab-recharge" class="hidden">
-    <div class="card">
-        <div class="card-title">余额充值</div>
-        <div id="recharge-alert"></div>
-        <div class="form-group"><label>选择用户</label><select id="recharge-user" class="form-control"></select></div>
-        <div class="form-group"><label>充值金额 (元)</label><input type="number" id="recharge-amount" class="form-control" value="100" step="0.01" min="0.01"></div>
-        <div class="form-group"><label>备注</label><input type="text" id="recharge-desc" class="form-control" placeholder="充值备注"></div>
-        <button class="btn btn-primary" onclick="doRecharge()">确认充值</button>
-    </div>
-</div>
-
-<!-- Plans Tab -->
-<div id="tab-plans" class="hidden">
-    <div class="card">
-        <div class="card-title">套餐管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openPlanModal('','',30,0,'',true)">添加套餐</button></div>
-        <div class="table-wrapper"><table><thead><tr>
-            <th>套餐名</th><th>天数</th><th>价格</th><th>描述</th><th>状态</th><th>操作</th>
-        </tr></thead><tbody id="plans-table"><tr><td colspan="6">加载中...</td></tr></tbody></table></div>
-    </div>
-</div>
-
-<!-- Billing Tab -->
-<div id="tab-billing" class="hidden">
-    <div class="card"><div class="card-title">计费规则</div>
-        <div class="table-wrapper"><table><thead><tr>
-            <th>名称</th><th>类型</th><th>免费(分)</th><th>费率(元/时)</th><th>日封顶</th><th>描述</th><th>状态</th><th>操作</th>
-        </tr></thead><tbody id="billing-table"><tr><td colspan="8">加载中...</td></tr></tbody></table></div>
-    </div>
-</div>
-
-<!-- Passes Tab -->
-<div id="tab-passes" class="hidden">
-    <div class="card"><div class="card-title">月卡管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openPassModal(0)">添加月卡</button></div>
-        <div class="table-wrapper"><table><thead><tr>
-            <th>ID</th><th>车牌号</th><th>类型</th><th>开始</th><th>结束</th><th>费用</th><th>状态</th><th>操作</th>
-        </tr></thead><tbody id="passes-table"><tr><td colspan="8">加载中...</td></tr></tbody></table></div>
-    </div>
-</div>
-
-<!-- Vehicles Tab -->
-<div id="tab-vehicles" class="hidden">
-    <div class="card">
-        <div class="card-title">车辆管理</div>
-        <div id="vehicle-mgmt-alert"></div>
-        <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-sm btn-primary" onclick="loadVehicles('all')">全部</button>
-            <button class="btn btn-sm btn-default" onclick="loadVehicles('parked')">停放中</button>
-            <button class="btn btn-sm btn-default" onclick="loadVehicles('left')">已离开</button>
-            <input type="text" id="vehicle-search" class="form-control" placeholder="搜索车牌号..." oninput="renderVehicles(currentFilter)" style="width:180px;padding:4px 10px;font-size:13px;margin-left:auto">
-        </div>
-        <div class="table-wrapper"><table><thead><tr>
-            <th>车牌号</th><th>最后入库</th><th>状态</th><th>总记录数</th><th>操作</th>
-        </tr></thead><tbody id="vehicles-mgmt-table"><tr><td colspan="5">加载中...</td></tr></tbody></table></div>
-    </div>
-</div>
-
-<!-- Blacklist Tab -->
-<div id="tab-blacklist" class="hidden">
-    <div class="card">
-        <div class="card-title">车辆黑名单</div>
-        <div id="bl-alert"></div>
-        <div class="form-row">
-            <div class="form-group"><label>车牌号</label><input type="text" id="bl-plate" class="form-control" placeholder="京A12345"></div>
-            <div class="form-group"><label>拉黑原因</label><input type="text" id="bl-reason" class="form-control" placeholder="违规、欠费等"></div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="addBlacklist()">加入黑名单</button>
-        <div class="table-wrapper" style="margin-top:16px"><table><thead><tr>
-            <th>ID</th><th>车牌号</th><th>原因</th><th>添加时间</th><th>操作</th>
-        </tr></thead><tbody id="blacklist-table"><tr><td colspan="5">加载中...</td></tr></tbody></table></div>
-    </div>
-</div>
-
-<!-- Reports Tab -->
-<div id="tab-reports" class="hidden">
-    <div class="stat-cards">
-        <div class="stat-card primary"><div class="label">今日收入</div><div class="value" id="rpt-today">-</div></div>
-        <div class="stat-card warning"><div class="label">本月收入</div><div class="value" id="rpt-month">-</div></div>
-        <div class="stat-card success"><div class="label">总收入</div><div class="value" id="rpt-total">-</div></div>
-    </div>
-    <div class="stat-cards" style="margin-top:8px">
-        <div class="stat-card" style="--primary:#ff4d4f"><div class="label">停车费</div><div class="value" id="rpt-parking">-</div></div>
-        <div class="stat-card" style="--primary:#faad14"><div class="label">套餐销售</div><div class="value" id="rpt-passes">-</div></div>
-        <div class="stat-card" style="--primary:#52c41a"><div class="label">预约预付</div><div class="value" id="rpt-reserve">-</div></div>
-    </div>
-    <div class="card" style="margin-top:16px"><div class="card-title">近30天收入趋势</div>
-        <div class="chart-container" id="revenue-chart" style="height:300px"></div>
-    </div>
-</div>
-
-    <!-- Notice Tab -->
-    <div id="tab-notice" class="hidden">
-        <div class="card">
-            <div class="card-title">编辑公告栏 <span style="font-weight:normal;font-size:12px;color:#999">（显示在主面板右侧）</span></div>
-            <div id="notice-alert"></div>
-            <div class="form-group">
-                <textarea id="notice-editor" class="form-control" rows="8" style="width:100%;font-size:14px" placeholder="输入公告内容..."></textarea>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
+            <div class="sidebar-nav">
+                <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
+                <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
+                <a class="nav-item active" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
+                <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
+                <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
             </div>
-            <button class="btn btn-primary" onclick="saveNotice()">保存公告</button>
+            <div class="sidebar-footer">
+                <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
+                <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="page-header"><h1>管理页面</h1><p>用户、套餐、计费、黑名单与统计</p></div>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('users',event)">用户管理</div>
+                <div class="tab" onclick="switchTab('recharge',event)">余额充值</div>
+                <div class="tab" onclick="switchTab('plans',event)">套餐管理</div>
+                <div class="tab" onclick="switchTab('billing',event)">计费规则</div>
+                <div class="tab" onclick="switchTab('vehicles',event)">车辆管理</div>
+                <div class="tab" onclick="switchTab('passes',event)">月卡管理</div>
+                <div class="tab" onclick="switchTab('blacklist',event)">黑名单</div>
+                <div class="tab" onclick="switchTab('reports',event)">收入统计</div>
+                <div class="tab" onclick="switchTab('notice',event)">公告编辑</div>
+            </div>
+            <div id="alert-box"></div>
+
+            <!-- Users Tab -->
+            <div id="tab-users">
+                <div class="card">
+                    <div class="card-title">用户信息 <button class="btn btn-primary btn-sm" style="float:right" onclick="showModal('user-modal')">添加用户</button></div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>手机号</th>
+                                    <th>真实姓名</th>
+                                    <th>角色</th>
+                                    <th>余额</th>
+                                    <th>注册时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table"><tr><td colspan="8">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recharge Tab -->
+            <div id="tab-recharge" class="hidden">
+                <div class="card">
+                    <div class="card-title">余额充值</div>
+                    <div id="recharge-alert"></div>
+                    <div class="form-group"><label>选择用户</label><select id="recharge-user" class="form-control"></select></div>
+                    <div class="form-group"><label>充值金额 (元)</label><input type="number" id="recharge-amount" class="form-control" value="100" step="0.01" min="0.01"></div>
+                    <div class="form-group"><label>备注</label><input type="text" id="recharge-desc" class="form-control" placeholder="充值备注"></div>
+                    <button class="btn btn-primary" onclick="doRecharge()">确认充值</button>
+                </div>
+            </div>
+
+            <!-- Plans Tab -->
+            <div id="tab-plans" class="hidden">
+                <div class="card">
+                    <div class="card-title">套餐管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openPlanModal('','',30,0,'',true)">添加套餐</button></div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>套餐名</th>
+                                    <th>天数</th>
+                                    <th>价格</th>
+                                    <th>描述</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="plans-table"><tr><td colspan="6">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Billing Tab -->
+            <div id="tab-billing" class="hidden">
+                <div class="card">
+                    <div class="card-title">计费规则</div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>类型</th>
+                                    <th>免费(分)</th>
+                                    <th>费率(元/时)</th>
+                                    <th>日封顶</th>
+                                    <th>描述</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="billing-table"><tr><td colspan="8">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Passes Tab -->
+            <div id="tab-passes" class="hidden">
+                <div class="card">
+                    <div class="card-title">月卡管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openPassModal(0)">添加月卡</button></div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>车牌号</th>
+                                    <th>类型</th>
+                                    <th>开始</th>
+                                    <th>结束</th>
+                                    <th>费用</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="passes-table"><tr><td colspan="8">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vehicles Tab -->
+            <div id="tab-vehicles" class="hidden">
+                <div class="card">
+                    <div class="card-title">车辆管理</div>
+                    <div id="vehicle-mgmt-alert"></div>
+                    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <button class="btn btn-sm btn-primary" onclick="loadVehicles('all')">全部</button>
+                        <button class="btn btn-sm btn-default" onclick="loadVehicles('parked')">停放中</button>
+                        <button class="btn btn-sm btn-default" onclick="loadVehicles('left')">已离开</button>
+                        <input type="text" id="vehicle-search" class="form-control" placeholder="搜索车牌号..." oninput="renderVehicles(currentFilter)" style="width:180px;padding:4px 10px;font-size:13px;margin-left:auto">
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>车牌号</th>
+                                    <th>最后入库</th>
+                                    <th>状态</th>
+                                    <th>总记录数</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vehicles-mgmt-table"><tr><td colspan="5">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Blacklist Tab -->
+            <div id="tab-blacklist" class="hidden">
+                <div class="card">
+                    <div class="card-title">车辆黑名单</div>
+                    <div id="bl-alert"></div>
+                    <div class="form-row">
+                        <div class="form-group"><label>车牌号</label><input type="text" id="bl-plate" class="form-control" placeholder="京A12345"></div>
+                        <div class="form-group"><label>拉黑原因</label><input type="text" id="bl-reason" class="form-control" placeholder="违规、欠费等"></div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="addBlacklist()">加入黑名单</button>
+                    <div class="table-wrapper" style="margin-top:16px">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>车牌号</th>
+                                    <th>原因</th>
+                                    <th>添加时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="blacklist-table"><tr><td colspan="5">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="tab-reports" class="hidden">
+                <div class="stat-cards">
+                    <div class="stat-card primary"><div class="label">今日收入</div><div class="value" id="rpt-today">-</div></div>
+                    <div class="stat-card warning"><div class="label">本月收入</div><div class="value" id="rpt-month">-</div></div>
+                    <div class="stat-card success"><div class="label">总收入</div><div class="value" id="rpt-total">-</div></div>
+                </div>
+                <div class="stat-cards" style="margin-top:8px">
+                    <div class="stat-card" style="--primary:#ff4d4f"><div class="label">停车费</div><div class="value" id="rpt-parking">-</div></div>
+                    <div class="stat-card" style="--primary:#faad14"><div class="label">套餐销售</div><div class="value" id="rpt-passes">-</div></div>
+                    <div class="stat-card" style="--primary:#52c41a"><div class="label">预约预付</div><div class="value" id="rpt-reserve">-</div></div>
+                </div>
+                <div class="card" style="margin-top:16px">
+                    <div class="card-title">近30天收入趋势</div>
+                    <div class="chart-container" id="revenue-chart" style="height:300px"></div>
+                </div>
+            </div>
+
+            <!-- Notice Tab -->
+            <div id="tab-notice" class="hidden">
+                <div class="card">
+                    <div class="card-title">编辑公告栏 <span style="font-weight:normal;font-size:12px;color:#999">（显示在主面板右侧）</span></div>
+                    <div id="notice-alert"></div>
+                    <div class="form-group">
+                        <textarea id="notice-editor" class="form-control" rows="8" style="width:100%;font-size:14px" placeholder="输入公告内容..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveNotice()">保存公告</button>
+                </div>
+            </div>
+
         </div>
     </div>
 
-</div>
-</div>
-
-<!-- User Modal -->
-<div class="modal-overlay" id="user-modal"><div class="modal">
-    <div class="modal-header"><h3 id="user-modal-title">添加用户</h3><button class="modal-close" onclick="hideModal('user-modal')">&times;</button></div>
-    <div class="modal-body">
-        <input type="hidden" id="edit-user-id">
-        <div class="form-group"><label>用户名</label><input type="text" id="modal-username" class="form-control" placeholder="请输入用户名"></div>
-        <div class="form-group"><label>密码</label><input type="password" id="modal-password" class="form-control" placeholder="请输入密码"></div>
-        <div class="form-row"><div class="form-group"><label>手机号</label><input type="tel" id="modal-telephone" class="form-control" maxlength="11"></div>
-        <div class="form-group"><label>真实姓名</label><input type="text" id="modal-truename" class="form-control"></div></div>
-        <div class="form-group"><label>角色</label><select id="modal-role" class="form-control">
-            <option value="user">普通用户</option><option value="operator">操作员</option><option value="admin">管理员</option><option value="root">超级管理员</option>
-        </select></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('user-modal')">取消</button><button class="btn btn-primary" onclick="saveUser()">保存</button></div>
-</div></div>
-
-<!-- Plan Modal -->
-<div class="modal-overlay" id="plan-modal"><div class="modal">
-    <div class="modal-header"><h3>编辑套餐</h3><button class="modal-close" onclick="hideModal('plan-modal')">&times;</button></div>
-    <div class="modal-body">
-        <input type="hidden" id="edit-plan-id">
-        <div class="form-group"><label>套餐名称</label><input type="text" id="plan-name" class="form-control"></div>
-        <div class="form-row"><div class="form-group"><label>有效天数</label><input type="number" id="plan-days" class="form-control" value="30"></div>
-        <div class="form-group"><label>价格 (元)</label><input type="number" id="plan-price" class="form-control" step="0.01" value="300"></div></div>
-        <div class="form-group"><label>描述</label><input type="text" id="plan-desc" class="form-control"></div>
-        <div class="form-group"><label><input type="checkbox" id="plan-active" checked> 启用</label></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('plan-modal')">取消</button><button class="btn btn-primary" onclick="savePlan()">保存</button></div>
-</div></div>
-
-<!-- Billing Edit Modal -->
-<div class="modal-overlay" id="billing-modal"><div class="modal">
-    <div class="modal-header"><h3>编辑计费规则</h3><button class="modal-close" onclick="hideModal('billing-modal')">&times;</button></div>
-    <div class="modal-body">
-        <input type="hidden" id="edit-billing-id"><input type="hidden" id="edit-billing-type">
-        <div class="form-group"><label>规则名称</label><input type="text" id="billing-name" class="form-control"></div>
-        <div class="form-row"><div class="form-group"><label>免费时长(分钟)</label><input type="number" id="billing-free" class="form-control"></div>
-        <div class="form-group"><label>费率(元/时)</label><input type="number" id="billing-rate" class="form-control" step="0.5"></div></div>
-        <div class="form-group"><label>每日封顶(元, 0=不限)</label><input type="number" id="billing-max" class="form-control" step="1"></div>
-        <div class="form-group"><label>描述</label><input type="text" id="billing-desc" class="form-control"></div>
-        <div class="form-group" id="tier-config-group" style="display:none">
-            <label>阶梯配置 (JSON)</label>
-            <textarea id="billing-tier-config" class="form-control" rows="3" placeholder='[{"hours":2,"rate":5},{"hours":4,"rate":3}]'></textarea>
-            <p style="font-size:11px;color:#999">格式: [{"hours":时长,"rate":费率},...] 超出部分按基础费率</p>
+    <!-- User Modal -->
+    <div class="modal-overlay" id="user-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 id="user-modal-title">添加用户</h3><button class="modal-close" onclick="hideModal('user-modal')">&times;</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-user-id">
+                <div class="form-group"><label>用户名</label><input type="text" id="modal-username" class="form-control" placeholder="请输入用户名"></div>
+                <div class="form-group"><label>密码</label><input type="password" id="modal-password" class="form-control" placeholder="请输入密码"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>手机号</label><input type="tel" id="modal-telephone" class="form-control" maxlength="11"></div>
+                    <div class="form-group"><label>真实姓名</label><input type="text" id="modal-truename" class="form-control"></div>
+                </div>
+                <div class="form-group">
+                    <label>角色</label><select id="modal-role" class="form-control">
+                        <option value="user">普通用户</option>
+                        <option value="operator">操作员</option>
+                        <option value="admin">管理员</option>
+                        <option value="root">超级管理员</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('user-modal')">取消</button><button class="btn btn-primary" onclick="saveUser()">保存</button></div>
         </div>
-        <div class="form-group"><label><input type="checkbox" id="billing-active" checked> 启用</label></div>
     </div>
-    <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('billing-modal')">取消</button><button class="btn btn-primary" onclick="saveBillingRule()">保存</button></div>
-</div></div>
 
-<!-- Pass Edit Modal -->
-<div class="modal-overlay" id="pass-modal"><div class="modal">
-    <div class="modal-header"><h3 id="pass-modal-title">编辑月卡</h3><button class="modal-close" onclick="hideModal('pass-modal')">&times;</button></div>
-    <div class="modal-body">
-        <input type="hidden" id="edit-pass-id">
-        <div class="form-group"><label>车牌号</label><input type="text" id="pass-edit-plate" class="form-control" placeholder="京A12345"></div>
-        <div class="form-group"><label>套餐类型</label><input type="text" id="pass-edit-type" class="form-control" placeholder="月卡/季卡/年卡"></div>
-        <div class="form-row"><div class="form-group"><label>开始日期</label><input type="date" id="pass-edit-start" class="form-control"></div>
-        <div class="form-group"><label>结束日期</label><input type="date" id="pass-edit-end" class="form-control"></div></div>
-        <div class="form-group"><label>费用</label><input type="number" id="pass-edit-fee" class="form-control" step="0.01"></div>
-        <div class="form-group"><label><input type="checkbox" id="pass-edit-active" checked> 有效</label></div>
+    <!-- Plan Modal -->
+    <div class="modal-overlay" id="plan-modal">
+        <div class="modal">
+            <div class="modal-header"><h3>编辑套餐</h3><button class="modal-close" onclick="hideModal('plan-modal')">&times;</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-plan-id">
+                <div class="form-group"><label>套餐名称</label><input type="text" id="plan-name" class="form-control"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>有效天数</label><input type="number" id="plan-days" class="form-control" value="30"></div>
+                    <div class="form-group"><label>价格 (元)</label><input type="number" id="plan-price" class="form-control" step="0.01" value="300"></div>
+                </div>
+                <div class="form-group"><label>描述</label><input type="text" id="plan-desc" class="form-control"></div>
+                <div class="form-group"><label><input type="checkbox" id="plan-active" checked> 启用</label></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('plan-modal')">取消</button><button class="btn btn-primary" onclick="savePlan()">保存</button></div>
+        </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('pass-modal')">取消</button><button class="btn btn-primary" onclick="savePass()">保存</button></div>
-</div></div>
 
-<script src="/js/common.js"></script>
-<script src="/js/admin.js"></script>
+    <!-- Billing Edit Modal -->
+    <div class="modal-overlay" id="billing-modal">
+        <div class="modal">
+            <div class="modal-header"><h3>编辑计费规则</h3><button class="modal-close" onclick="hideModal('billing-modal')">&times;</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-billing-id"><input type="hidden" id="edit-billing-type">
+                <div class="form-group"><label>规则名称</label><input type="text" id="billing-name" class="form-control"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>免费时长(分钟)</label><input type="number" id="billing-free" class="form-control"></div>
+                    <div class="form-group"><label>费率(元/时)</label><input type="number" id="billing-rate" class="form-control" step="0.5"></div>
+                </div>
+                <div class="form-group"><label>每日封顶(元, 0=不限)</label><input type="number" id="billing-max" class="form-control" step="1"></div>
+                <div class="form-group"><label>描述</label><input type="text" id="billing-desc" class="form-control"></div>
+                <div class="form-group" id="tier-config-group" style="display:none">
+                    <label>阶梯配置 (JSON)</label>
+                    <textarea id="billing-tier-config" class="form-control" rows="3" placeholder='[{"hours":2,"rate":5},{"hours":4,"rate":3}]'></textarea>
+                    <p style="font-size:11px;color:#999">格式: [{"hours":时长,"rate":费率},...] 超出部分按基础费率</p>
+                </div>
+                <div class="form-group"><label><input type="checkbox" id="billing-active" checked> 启用</label></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('billing-modal')">取消</button><button class="btn btn-primary" onclick="saveBillingRule()">保存</button></div>
+        </div>
+    </div>
+
+    <!-- Pass Edit Modal -->
+    <div class="modal-overlay" id="pass-modal">
+        <div class="modal">
+            <div class="modal-header"><h3 id="pass-modal-title">编辑月卡</h3><button class="modal-close" onclick="hideModal('pass-modal')">&times;</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-pass-id">
+                <div class="form-group"><label>车牌号</label><input type="text" id="pass-edit-plate" class="form-control" placeholder="京A12345"></div>
+                <div class="form-group"><label>套餐类型</label><input type="text" id="pass-edit-type" class="form-control" placeholder="月卡/季卡/年卡"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>开始日期</label><input type="date" id="pass-edit-start" class="form-control"></div>
+                    <div class="form-group"><label>结束日期</label><input type="date" id="pass-edit-end" class="form-control"></div>
+                </div>
+                <div class="form-group"><label>费用</label><input type="number" id="pass-edit-fee" class="form-control" step="0.01"></div>
+                <div class="form-group"><label><input type="checkbox" id="pass-edit-active" checked> 有效</label></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('pass-modal')">取消</button><button class="btn btn-primary" onclick="savePass()">保存</button></div>
+        </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/admin.js"></script>
+
+    <!-- 停车计费与余额扣费 -->
+    <div id="tab-parking-fee" class="hidden">
+        <div class="card">
+            <div class="card-title">停车计费 & 离场扣费（任务D）</div>
+            <div id="parking-alert"></div>
+
+            <div class="form-group">
+                <label>用户ID</label>
+                <input type="number" id="fee-user-id" class="form-control" placeholder="输入用户ID">
+            </div>
+            <div class="form-group">
+                <label>车牌号</label>
+                <input type="text" id="fee-plate" class="form-control" placeholder="京A12345">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>入场时间</label>
+                    <input type="datetime-local" id="fee-in-time" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>离场时间</label>
+                    <input type="datetime-local" id="fee-out-time" class="form-control">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="calculateParkingFee()">计算停车费</button>
+            <button class="btn btn-success" onclick="doParkingDeduct()">确认离场并扣费</button>
+
+            <div style="margin-top:16px;">
+                <h4>计费结果</h4>
+                <p>应缴费用：<span id="show-fee" style="color:red;font-weight:bold">0</span> 元</p>
+                <p>用户余额：<span id="show-balance" style="color:blue;font-weight:bold">0</span> 元</p>
+                <p>计费规则：<span id="show-rule">-</span></p>
+                <p>月卡状态：<span id="show-pass">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 追加标签页
+        document.addEventListener('DOMContentLoaded', function () {
+            // 找到 tabs 栏
+            let tabs = document.querySelector('.tabs');
+            if (!tabs) return;
+
+            // 创建新标签
+            let tab = document.createElement('div');
+            tab.className = 'tab';
+            tab.textContent = '停车计费';
+            tab.onclick = function (e) { switchTab('parking-fee', e); };
+            tabs.appendChild(tab);
+        });
+    </script>
+
 </body>
 </html>

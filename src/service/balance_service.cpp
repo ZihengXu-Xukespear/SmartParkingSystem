@@ -106,3 +106,29 @@ void BalanceService::addRecord(int userId, double amount, const std::string& typ
         std::to_string(balanceAfter) + ")";
     mysql_query(mysql, sql.c_str());
 }
+
+// 计算停车费
+double BalanceService::calculateParkingFee(time_t startTime, time_t endTime, double hourlyRate) {
+    if (startTime >= endTime || hourlyRate <= 0) {
+        return 0.0;
+    }
+    double seconds = difftime(endTime, startTime);
+    double hours = ceil(seconds / 3600.0);
+    return hours * hourlyRate;
+}
+
+// 停车扣费
+bool BalanceService::parkingDeduct(int userId, time_t startTime, time_t endTime, double hourlyRate, std::string& error) {
+    double fee = calculateParkingFee(startTime, endTime, hourlyRate);
+    if (fee <= 0) {
+        error = "停车费用计算异常";
+        return false;
+    }
+    return deduct(userId, fee, "parking", "停车计费", error);
+}
+
+// 判断余额是否足够
+bool BalanceService::isBalanceEnough(int userId, double fee) {
+    double balance = getBalance(userId);
+    return balance >= fee;
+}
