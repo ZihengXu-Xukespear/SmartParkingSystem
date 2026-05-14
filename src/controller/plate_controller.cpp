@@ -16,7 +16,9 @@ void PlateController::registerRoutes(crow::SimpleApp& app) {
         res["confidence"] = result.confidence;
         res["color"] = result.color;
         res["message"] = result.message;
-        return crow::response(res);
+        crow::response cres(res);
+        cres.set_header("Content-Type", "application/json; charset=utf-8");
+        return cres;
     });
 
     // New: Recognize plate from camera image (base64) and check registration
@@ -50,6 +52,7 @@ void PlateController::registerRoutes(crow::SimpleApp& app) {
         res["confidence"] = plate_result.confidence;
         res["color"] = plate_result.color;
         res["recognize_message"] = plate_result.message;
+        res["_debug_raw_hex"] = ""; // will be filled if available
 
         // Step 2: If plate was recognized, check registration
         if (!plate_result.plate_number.empty()) {
@@ -66,7 +69,9 @@ void PlateController::registerRoutes(crow::SimpleApp& app) {
             res["registration"]["message"] = reg_info.message;
         }
 
-        return crow::response(res);
+        crow::response cres(res);
+        cres.set_header("Content-Type", "application/json; charset=utf-8");
+        return cres;
     });
 
     // New: Check if a plate is registered (manual entry)

@@ -1,5 +1,7 @@
 #include "plate_service.h"
+#ifdef ENABLE_OPENCV
 #include "../plate_recognizer.h"
+#endif
 #include <mysql.h>
 #include <sstream>
 
@@ -11,6 +13,7 @@ PlateService& PlateService::instance() {
 PlateService::PlateResult PlateService::recognize(const std::string& image_data) {
     PlateResult result;
 
+#ifdef ENABLE_OPENCV
     // Use the OpenCV-based plate recognizer
     auto recog_result = PlateRecognizer::instance().recognize(image_data);
 
@@ -18,6 +21,12 @@ PlateService::PlateResult PlateService::recognize(const std::string& image_data)
     result.confidence = recog_result.confidence;
     result.color = recog_result.plate_color;
     result.message = recog_result.message;
+#else
+    result.plate_number = "";
+    result.confidence = 0.0;
+    result.color = "unknown";
+    result.message = "车牌识别功能未启用（未安装 OpenCV）";
+#endif
 
     return result;
 }

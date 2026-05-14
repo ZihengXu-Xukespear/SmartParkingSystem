@@ -147,8 +147,17 @@ function displayResult(data) {
 }
 
 function getColorLabel(color) {
-    const map = { blue: '蓝色 (蓝牌)', green: '绿色 (新能源)', yellow: '黄色', unknown: '未识别' };
-    return map[color] || color;
+    const map = {
+        '蓝牌': '蓝牌',
+        '绿牌（新能源）': '绿牌（新能源）',
+        '黄牌': '黄牌',
+        'blue': '蓝牌',
+        'green': '绿牌（新能源）',
+        'yellow': '黄牌',
+        'unknown': '未识别',
+        '未知': '未识别'
+    };
+    return map[color] || color || '未识别';
 }
 
 // ========== Quick Check-in/out ==========

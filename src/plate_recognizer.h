@@ -1,7 +1,12 @@
 #pragma once
 #include <string>
 #include <vector>
+
+#ifdef ENABLE_OPENCV
 #include <opencv2/core.hpp>
+#else
+typedef unsigned char uchar;
+#endif
 
 class PlateRecognizer {
 public:
@@ -15,11 +20,15 @@ public:
     };
 
     RecognitionResult recognize(const std::string& image_base64);
+
+#ifdef ENABLE_OPENCV
     RecognitionResult recognize(const cv::Mat& frame);
+#endif
 
 private:
     PlateRecognizer() = default;
 
+#ifdef ENABLE_OPENCV
     // Image preprocessing
     cv::Mat preprocess(const cv::Mat& src);
 
@@ -29,18 +38,9 @@ private:
     // Plate color analysis
     std::string analyzePlateColor(const cv::Mat& plate_region);
 
-    // Character recognition pipeline
+    // OCR-based character recognition (delegates to RapidOCR via Python bridge)
     std::string recognizeCharacters(const cv::Mat& plate_img, double& confidence);
-    std::vector<cv::Mat> segmentCharacters(const cv::Mat& plate_img);
-    char matchCharacter(const cv::Mat& char_img, double& conf);
-
-    // Template management
-    void initTemplates();
-    std::vector<cv::Mat> digit_templates_;
-    std::vector<cv::Mat> letter_templates_;
-    std::vector<std::vector<cv::Point>> digit_contours_;
-    std::vector<std::vector<cv::Point>> letter_contours_;
-    bool templates_initialized_ = false;
+#endif
 
     // Base64 helper
     static std::vector<uchar> base64Decode(const std::string& data);
