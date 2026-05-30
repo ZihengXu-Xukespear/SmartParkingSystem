@@ -34,13 +34,23 @@ std::string AuthService::login(const std::string& username, const std::string& p
     std::string token = generateToken();
     time_t expiry = std::time(nullptr) + token_ttl_seconds_;
     std::lock_guard<std::mutex> lock(tokens_mutex_);
-    tokens_[token] = TokenInfo{out_user.id, out_user.role, expiry};
+    tokens_[token] = TokenInfo{ out_user.id, out_user.role, expiry };
     return token;
 }
 
 bool AuthService::registerUser(const User& user) {
     auto conn = getConnection();
     if (!conn) return false;
+
+    std::string checkSql = "SELECT id FROM USER WHERE username=" + quote(conn->get(), user.username);
+    if (mysql_query(conn->get(), checkSql.c_str()) == 0) {
+        MYSQL_RES* res = mysql_store_result(conn->get());
+        if (res && mysql_num_rows(res) > 0) {
+            mysql_free_result(res);
+            return false;
+        }
+        if (res) mysql_free_result(res);
+    }
 
     std::string hashed = sha256::hash(user.password);
     std::string sql = "INSERT INTO USER (username,password,telephone,truename,role) VALUES (" +

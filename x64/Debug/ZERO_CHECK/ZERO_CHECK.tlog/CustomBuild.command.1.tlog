@@ -1,0 +1,10 @@
+^C:\USERS\YOUYO\DESKTOP\SMARTPARKINGSYSTEM\CMAKEFILES\D82D081C2009F58FAB975B0C50840F12\GENERATE.STAMP.RULE
+setlocal
+C:\VSCPP2022\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe -SC:/Users/youyo/Desktop/SmartParkingSystem -BC:/Users/youyo/Desktop/SmartParkingSystem --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/youyo/Desktop/SmartParkingSystem/smart_parking.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-banner">
+                <h1>Smart Parking</h1>
+                <p>创建您的账户<br>开始使用智慧停车管理系统</p>
+            </div>
+            <div class="auth-form">
+                <h2>用户注册</h2>
+                <p class="subtitle">请填写以下信息完成注册</p>
+                <div id="alert-box"></div>
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="username" class="form-control" placeholder="请输入用户名" autocomplete="username">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="password" class="form-control" placeholder="请输入密码">
+                    </div>
+                    <div class="form-group">
+                        <label>确认密码</label>
+                        <input type="password" id="confirm_password" class="form-control" placeholder="再次输入密码">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="tel" id="telephone" class="form-control" placeholder="请输入手机号" maxlength="11">
+                    </div>
+                    <div class="form-group">
+                        <label>真实姓名</label>
+                        <input type="text" id="truename" class="form-control" placeholder="请输入真实姓名">
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-block btn-lg" onclick="handleRegister()" id="register-btn">注 册</button>
+                <div class="auth-footer">
+                    已有账号？<a href="/index.html">返回登录</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/common.js"></script>
+    <script>
+        async function handleRegister() {
+            const btn = document.getElementById('register-btn');
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirm_password').value;
+            const telephone = document.getElementById('telephone').value.trim();
+            const truename = document.getElementById('truename').value.trim();
+
+            if (!username || !password) {
+                showError('alert-box', '用户名和密码不能为空');
+                return;
+            }
+            if (password !== confirm) {
+                showError('alert-box', '两次密码不一致');
+                return;
+            }
+            if (!telephone || telephone.length !== 11) {
+                showError('alert-box', '请输入正确的11位手机号');
+                return;
+            }
+            if (!truename) {
+                showError('alert-box', '请输入真实姓名');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '注册中...';
+
+            const res = await post('/api/auth/register', {
+                username, password, confirm_password: confirm, telephone, truename
+            });
+
+            btn.disabled = false;
+            btn.textContent = '注 册';
+
+            if (res && res.ok) {
+                showSuccess('alert-box', '注册成功，即将跳转到登录页...');
+                setTimeout(() => window.location.href = '/index.html', 1500);
+            } else {
+                showError('alert-box', res?.data?.error || '注册失败');
+            }
+        }
+
+        // Enter key support
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') handleRegister();
+        });
+    </script>
+</body>
+</html>

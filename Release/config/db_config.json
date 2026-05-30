@@ -1,0 +1,1 @@
+{"host":"localhost","port":3306,"database":"smart_parking","password":"panda123panda","user":"root","fee":5,"parking_name":"智慧停车场","capacity":100,"server_port":8080,"notice_expire_minutes":30,"notice":"欢迎使用智慧停车场管理系统！\n请遵守停车场管理规定，文明停车。"}

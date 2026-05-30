@@ -69,15 +69,36 @@ CREATE TABLE IF NOT EXISTS BILLING_RULE (
     is_active TINYINT DEFAULT 1
 ) ENGINE=InnoDB;
 
--- 月卡表
+-- 套餐定价表
+CREATE TABLE IF NOT EXISTS pass_plan (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    plan_name VARCHAR(50) NOT NULL COMMENT '套餐名称：月卡/季卡/年卡',
+    duration_days INT NOT NULL COMMENT '有效天数',
+    price DECIMAL(10,2) NOT NULL COMMENT '销售价格',
+    description VARCHAR(255) DEFAULT '' COMMENT '套餐说明',
+    is_active TINYINT DEFAULT 1 COMMENT '1=启用 0=禁用',
+    -- 把默认值改为空字符串，同时保留 NOT NULL
+    P_name VARCHAR(255) NOT NULL DEFAULT '' COMMENT '所属停车场',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO pass_plan (plan_name, duration_days, price, description, is_active, P_name)
+VALUES
+('月卡', 30, 300.00, '30天畅停，适合短期需求', 1, ''),
+('季卡', 90, 800.00, '90天优惠，每天不到9元', 1, ''),
+('年卡', 365, 2880.00, '全年无忧，每天不到8元', 1, '');
+
+-- ===================== 【关键修复】月卡表：允许一个车牌多条记录 =====================
 CREATE TABLE IF NOT EXISTS MONTHLY_PASS (
     id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
     license_plate VARCHAR(20) NOT NULL,
     pass_type VARCHAR(50) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     fee DECIMAL(10,2) NOT NULL,
     is_active TINYINT DEFAULT 1,
+    INDEX idx_user_plate (user_id, license_plate),
     INDEX idx_plate (license_plate)
 ) ENGINE=InnoDB;
 
@@ -88,7 +109,7 @@ INSERT IGNORE INTO BILLING_RULE (rule_name, rule_type, free_minutes, hourly_rate
 ('会员计费', 'member', 60, 3.00, 30.00, '会员享受60分钟免费，之后每小时3元，每日封顶30元', 0),
 ('特殊车辆', 'special', 1440, 0.00, 0.00, '军车、警车、消防车等特殊车辆免费', 0);
 
--- 预约触发器：插入时增加预约数
+-- 预约触发器
 DELIMITER //
 CREATE TRIGGER IF NOT EXISTS after_reservation_insert
 AFTER INSERT ON RESERVATION
@@ -98,7 +119,6 @@ BEGIN
 END//
 DELIMITER ;
 
--- 预约触发器：删除时减少预约数
 DELIMITER //
 CREATE TRIGGER IF NOT EXISTS after_reservation_delete
 AFTER DELETE ON RESERVATION
@@ -108,10 +128,8 @@ BEGIN
 END//
 DELIMITER ;
 
--- 开启事件调度器
 SET GLOBAL event_scheduler = ON;
 
--- 定时清理过期预约（每1分钟清理30分钟前的预约）
 DROP EVENT IF EXISTS clean_expired_reservations;
 DELIMITER //
 CREATE EVENT clean_expired_reservations

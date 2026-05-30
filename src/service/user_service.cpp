@@ -1,6 +1,8 @@
 #include "user_service.h"
 #include "../sha256.h"
 
+#include <iostream>
+
 UserService& UserService::instance() {
     static UserService inst;
     return inst;
@@ -26,7 +28,7 @@ bool UserService::addUser(const User& user) {
 }
 
 bool UserService::updateUser(int id, const std::string& username, const std::string& telephone,
-                const std::string& truename, const std::string& role) {
+    const std::string& truename, const std::string& role) {
     auto conn = getConnection();
     if (!conn) return false;
     MYSQL* mysql = conn->get();
@@ -64,5 +66,65 @@ User UserService::mapRow(MYSQL_ROW row) {
     u.role = row[4] ? row[4] : "user";
     u.balance = row[5] ? std::stod(row[5]) : 0.0;
     u.created_at = row[6] ? row[6] : "";
+    return u;
+}
+
+// ==================== 密码校验（正确匹配 SHA256 加密） ====================
+// 密码校验（适配 SHA256）
+bool UserService::checkPassword(int userId, const std::string& password) {
+    auto conn = getConnection();
+    if (!conn) return false;
+    MYSQL* mysql = conn->get();
+
+    char sql[256];
+    snprintf(sql, sizeof(sql), "SELECT password FROM USER WHERE id = %d", userId);
+    if (mysql_query(mysql, sql)) return false;
+
+    MYSQL_RES* res = mysql_store_result(mysql);
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (!row) {
+        mysql_free_result(res);
+        return false;
+    }
+
+    std::string inputHash = sha256::hash(password);
+    std::string dbHash = row[0];
+    bool ok = (inputHash == dbHash);
+    mysql_free_result(res);
+    return ok;
+}
+
+// 注销账号
+bool UserService::disableUser(int id) {
+    auto conn = getConnection();
+    if (!conn) return false;
+    MYSQL* mysql = conn->get();
+
+    char sql[256];
+    snprintf(sql, sizeof(sql), "UPDATE USER SET status=0 WHERE id=%d", id);
+
+    int result = mysql_query(mysql, sql);
+    return result == 0;
+}
+
+// ==================== 根据ID获取用户 ====================
+User UserService::getById(int id) {
+    User u;
+    auto conn = getConnection();
+    if (!conn) return u;
+    MYSQL* mysql = conn->get();
+
+    char sql[256];
+    snprintf(sql, sizeof(sql), "SELECT id,username,password FROM USER WHERE id = %d", id);
+    if (mysql_query(mysql, sql)) return u;
+
+    MYSQL_RES* res = mysql_store_result(mysql);
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (row) {
+        u.id = id;
+        u.username = row[1];
+        u.password = row[2];
+    }
+    mysql_free_result(res);
     return u;
 }

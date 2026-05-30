@@ -1,5 +1,9 @@
 #include "billing_service.h"
-#include "base_service.h" 
+#include "base_service.h"
+#include <map>
+#include <string>
+#include <vector>
+#include <cmath>
 
 BillingService& BillingService::instance() {
     static BillingService inst;
@@ -73,46 +77,177 @@ bool BillingService::updateRule(int id, const BillingRule& rule) {
     return executeQuery(mysql, sql);
 }
 
-std::vector<MonthlyPass> BillingService::getMonthlyPasses() {
+// ===================== 【用户用】带 userId（个人中心显示：月卡*2+季卡） =====================
+std::vector<MonthlyPass> BillingService::getMonthlyPasses(int userId)
+{
     std::vector<MonthlyPass> passes;
-    auto conn = getConnection();
+    auto conn = this->getConnection();
     if (!conn) return passes;
 
-    if (mysql_query(conn->get(), "SELECT id,license_plate,pass_type,start_date,end_date,fee,is_active,user_id,plan_id FROM MONTHLY_PASS ORDER BY id") != 0)
+    std::string sql =
+        "SELECT license_plate, pass_type, end_date, fee, start_date "
+        "FROM MONTHLY_PASS "
+        "WHERE user_id = " + std::to_string(userId) +
+        " AND is_active = 1 AND end_date >= NOW()";
+
+    if (mysql_query(conn->get(), sql.c_str()) != 0)
         return passes;
+
     MYSQL_RES* res = mysql_store_result(conn->get());
     if (!res) return passes;
 
+    std::map<std::string, std::map<std::string, int>> plateTypeCount;
+    std::map<std::string, double> plateTotalFee;
+    std::map<std::string, std::string> plateLatestEnd;
+    std::map<std::string, std::string> plateStartDate;
+
     MYSQL_ROW row;
-    while ((row = mysql_fetch_row(res))) {
-        MonthlyPass p;
-        p.id = std::stoi(row[0]);
-        p.license_plate = row[1] ? row[1] : "";
-        p.pass_type = row[2] ? row[2] : "";
-        p.start_date = row[3] ? row[3] : "";
-        p.end_date = row[4] ? row[4] : "";
-        p.fee = row[5] ? std::stod(row[5]) : 0.0;
-        p.is_active = row[6] ? std::stoi(row[6]) == 1 : true;
-        p.user_id = row[7] ? std::stoi(row[7]) : 0;
-        p.plan_id = row[8] ? std::stoi(row[8]) : 0;
-        passes.push_back(p);
+    while ((row = mysql_fetch_row(res)))
+    {
+        std::string plate = row[0] ? row[0] : "";
+        std::string type = row[1] ? row[1] : "";
+        std::string end = row[2] ? row[2] : "";
+        double fee = row[3] ? std::stod(row[3]) : 0.0;
+        std::string start = row[4] ? row[4] : "";
+
+        if (plate.empty() || type.empty()) continue;
+
+        if (plateStartDate[plate].empty())
+            plateStartDate[plate] = start;
+
+        plateTypeCount[plate][type]++;
+        plateTotalFee[plate] += fee;
+
+        if (plateLatestEnd[plate].empty() || end > plateLatestEnd[plate])
+            plateLatestEnd[plate] = end;
     }
     mysql_free_result(res);
+
+    for (auto& entry : plateTypeCount)
+    {
+        std::string plate = entry.first;
+        auto& countMap = entry.second;
+
+        std::string combinedType;
+        for (auto& p : countMap)
+        {
+            if (!combinedType.empty()) combinedType += "+";
+            if (p.second == 1)
+                combinedType += p.first;
+            else
+                combinedType += p.first + "*" + std::to_string(p.second);
+        }
+
+        MonthlyPass mp;
+        mp.id = 0;
+        mp.license_plate = plate;
+        mp.pass_type = combinedType;
+        mp.start_date = plateStartDate[plate];
+        mp.end_date = plateLatestEnd[plate];
+        mp.fee = plateTotalFee[plate];
+        mp.is_active = true;
+        mp.user_id = userId;
+        passes.push_back(mp);
+    }
+
     return passes;
 }
 
+// ===================== 【管理员用】不带 userId =====================
+std::vector<MonthlyPass> BillingService::getMonthlyPasses()
+{
+    std::vector<MonthlyPass> passes;
+    auto conn = this->getConnection();
+    if (!conn) return passes;
+
+    std::string sql =
+        "SELECT user_id, license_plate, pass_type, end_date, fee, start_date "
+        "FROM MONTHLY_PASS "
+        "WHERE is_active = 1 AND end_date >= NOW()";
+
+    if (mysql_query(conn->get(), sql.c_str()) != 0)
+        return passes;
+
+    MYSQL_RES* res = mysql_store_result(conn->get());
+    if (!res) return passes;
+
+    std::map<std::string, std::map<std::string, int>> plateTypeCount;
+    std::map<std::string, double> plateTotalFee;
+    std::map<std::string, std::string> plateLatestEnd;
+    std::map<std::string, std::string> plateStartDate;
+    std::map<std::string, int> plateUserId;
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res)))
+    {
+        int uid = std::stoi(row[0]);
+        std::string plate = row[1] ? row[1] : "";
+        std::string type = row[2] ? row[2] : "";
+        std::string end = row[3] ? row[3] : "";
+        double fee = row[4] ? std::stod(row[4]) : 0.0;
+        std::string start = row[5] ? row[5] : "";
+
+        if (plate.empty() || type.empty()) continue;
+
+        if (plateStartDate[plate].empty())
+            plateStartDate[plate] = start;
+
+        plateUserId[plate] = uid;
+        plateTypeCount[plate][type]++;
+        plateTotalFee[plate] += fee;
+
+        if (plateLatestEnd[plate].empty() || end > plateLatestEnd[plate])
+            plateLatestEnd[plate] = end;
+    }
+    mysql_free_result(res);
+
+    for (auto& entry : plateTypeCount)
+    {
+        std::string plate = entry.first;
+        auto& countMap = entry.second;
+
+        std::string combinedType;
+        for (auto& p : countMap)
+        {
+            if (!combinedType.empty()) combinedType += "+";
+            if (p.second == 1)
+                combinedType += p.first;
+            else
+                combinedType += p.first + "*" + std::to_string(p.second);
+        }
+
+        MonthlyPass mp;
+        mp.id = 0;
+        mp.license_plate = plate;
+        mp.pass_type = combinedType;
+        mp.start_date = plateStartDate[plate];
+        mp.end_date = plateLatestEnd[plate];
+        mp.fee = plateTotalFee[plate];
+        mp.is_active = true;
+        mp.user_id = plateUserId[plate];
+        passes.push_back(mp);
+    }
+
+    return passes;
+}
+
+// ===================== 【强制每次购买都新增一条记录】 =====================
 bool BillingService::addMonthlyPass(const MonthlyPass& pass) {
     auto conn = getConnection();
     if (!conn) return false;
     MYSQL* mysql = conn->get();
 
-    std::string sql = "INSERT INTO MONTHLY_PASS (license_plate,pass_type,start_date,end_date,fee,is_active,user_id,plan_id) VALUES (" +
+    // 永远插入新记录！！！
+    std::string sql = "INSERT INTO MONTHLY_PASS ("
+        "user_id, license_plate, pass_type, start_date, end_date, fee, is_active"
+        ") VALUES (" +
+        std::to_string(pass.user_id) + "," +
         quote(mysql, pass.license_plate) + "," +
         quote(mysql, pass.pass_type) + "," +
         quote(mysql, pass.start_date) + "," +
         quote(mysql, pass.end_date) + "," +
-        std::to_string(pass.fee) + ",1," +
-        std::to_string(pass.user_id) + "," + std::to_string(pass.plan_id) + ")";
+        std::to_string(pass.fee) + ", 1)";
+
     return executeQuery(mysql, sql);
 }
 
@@ -136,7 +271,6 @@ bool BillingService::deleteMonthlyPass(int id) {
     return executeQuery(conn->get(), sql);
 }
 
-// ��ȡ��ǰ��Ч�ļƷѹ��򣨰�is_active=1����ȡ��һ����
 BillingRule BillingService::getActiveRule() {
     BillingRule rule{};
     auto conn = getConnection();
@@ -166,36 +300,29 @@ BillingRule BillingService::getActiveRule() {
     return rule;
 }
 
-// �����볡/�볡ʱ�䣬���������ͣ�����ã������ʱ�����շⶥ��
 double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::string& ruleDesc) {
-    // 1. �����Ϸ���У��
     if (inTime >= outTime) {
-        ruleDesc = "ʱ�������Ч";
+        ruleDesc = "时间无效";
         return 0.0;
     }
 
-    // 2. ��ȡ��ǰ��Ч�ļƷѹ���
     BillingRule rule = getActiveRule();
     if (!rule.is_active) {
-        ruleDesc = "����Ч�Ʒѹ���";
+        ruleDesc = "无有效计费规则";
         return 0.0;
     }
     ruleDesc = rule.rule_name;
 
-    // 3. ����ͣ���ܷ�����
     long long totalMinutes = std::difftime(outTime, inTime) / 60;
 
-    // 4. �۳����ʱ��
     if (totalMinutes <= rule.free_minutes) {
         return 0.0;
     }
     long long chargeMinutes = totalMinutes - rule.free_minutes;
 
-    // 5. ����Сʱ��������ȡ����
     double hours = std::ceil(chargeMinutes / 60.0);
     double fee = hours * rule.hourly_rate;
 
-    // 6. �շⶥ����
     if (fee > rule.max_daily_fee) {
         fee = rule.max_daily_fee;
     }
@@ -203,27 +330,64 @@ double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::s
     return fee;
 }
 
-// ����û��¿��Ƿ�����Ч���ڣ���Ʒѣ�
+// ===================== 【检查所有套餐，而不是只查一个】 =====================
 bool BillingService::checkMonthlyPassValid(int userId, const std::string& plate, std::string& passInfo) {
-    auto conn = getConnection();  // �����޸�������
+    auto conn = getConnection();
     if (!conn) return false;
 
-    std::string sql = "SELECT id,pass_type,end_date FROM MONTHLY_PASS "
-        "WHERE user_id=" + std::to_string(userId) +
-        " AND license_plate='" + plate + "' AND is_active=1 AND end_date >= NOW() LIMIT 1";
+    std::string sql = "SELECT pass_type, end_date FROM MONTHLY_PASS "
+        "WHERE user_id = " + std::to_string(userId) +
+        " AND license_plate = '" + plate + "' "
+        "AND is_active = 1 AND end_date >= NOW()";
 
     if (mysql_query(conn->get(), sql.c_str()) != 0) return false;
     MYSQL_RES* res = mysql_store_result(conn->get());
     if (!res) return false;
 
-    MYSQL_ROW row = mysql_fetch_row(res);
-    if (row) {
-        passInfo = "��Ч" + std::string(row[1]) + "�¿�����Ч������" + std::string(row[2]);
-        mysql_free_result(res);
-        return true;
+    bool hasValid = false;
+    passInfo = "";
+    MYSQL_ROW row;
+
+    while ((row = mysql_fetch_row(res))) {
+        hasValid = true;
+        if (!passInfo.empty()) {
+            passInfo += " | ";
+        }
+        passInfo += std::string(row[0]) + "（至" + std::string(row[1]) + "）";
     }
 
     mysql_free_result(res);
-    passInfo = "����Ч�¿�";
-    return false;
+    return hasValid;
+}
+
+// ===================== 【套餐查询：所有停车场通用】 =====================
+std::vector<PassPlan> BillingService::getPassPlans() {
+    std::vector<PassPlan> plans;
+    auto conn = getConnection();
+    if (!conn) return plans;
+
+    // 读取所有启用的套餐（空 P_name = 全停车场通用）
+    std::string sql = "SELECT id, plan_name, duration_days, price, description, P_name "
+        "FROM pass_plan WHERE is_active = 1";
+
+    if (mysql_query(conn->get(), sql.c_str()) != 0)
+        return plans;
+
+    MYSQL_RES* res = mysql_store_result(conn->get());
+    if (!res) return plans;
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        PassPlan p;
+        p.id = std::stoi(row[0]);
+        p.plan_name = row[1] ? row[1] : "";
+        p.duration_days = row[2] ? std::stoi(row[2]) : 0;
+        p.price = row[3] ? std::stod(row[3]) : 0.0;
+        p.description = row[4] ? row[4] : "";
+        p.P_name = row[5] ? row[5] : "";
+        plans.push_back(p);
+    }
+
+    mysql_free_result(res);
+    return plans;
 }

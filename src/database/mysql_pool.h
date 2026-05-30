@@ -33,6 +33,7 @@ public:
         mysql_autocommit(mysql_, 1);
         return ok;
     }
+
 private:
     MYSQL* mysql_;
     bool committed_;
@@ -42,6 +43,7 @@ class MySQLPool {
 public:
     static MySQLPool& instance();
 
+    // 这里加默认参数 = 完全兼容 main.cpp，不用改任何代码！
     bool init(const AppConfig& cfg, int pool_size = 5);
 
     class ConnGuard {

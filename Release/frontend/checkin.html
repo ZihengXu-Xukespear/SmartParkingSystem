@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>车辆入库 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .spot { width:42px; height:42px; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:11px; font-weight:600; cursor:pointer; transition:all 0.15s; border:2px solid transparent; user-select:none; }
+        .spot.available { background:#d4edda; color:#155724; border-color:#28a745; }
+        .spot.available:hover { background:#28a745; color:#fff; transform:scale(1.05); box-shadow:0 2px 8px rgba(40,167,69,0.3); }
+        .spot.occupied { background:#f8d7da; color:#721c24; border-color:#dc3545; cursor:not-allowed; }
+        .spot.reserved { background:#fff3cd; color:#856404; border-color:#ffc107; cursor:not-allowed; }
+        .spot.selected { background:#00aa7f; color:#fff; border-color:#008a66; transform:scale(1.08); box-shadow:0 2px 12px rgba(0,170,127,0.4); }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="sidebar">
+        <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
+        <div class="sidebar-nav">
+            <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
+            <a class="nav-item" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
+            <a class="nav-item active" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
+            <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
+            <a class="nav-item" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
+            <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
+            <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
+            <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
+            <a class="nav-item" id="nav-chat" href="/chat.html"><span class="icon">&#128172;</span> 联系客服</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
+            <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="page-header"><h1>车辆入库</h1><p>选择车位后登记车辆入场</p></div>
+        <div id="alert-box"></div>
+
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <label style="font-size:14px;font-weight:600;">停车场：</label>
+            <select id="lot-selector" class="form-control" style="width:220px;" onchange="onLotChange()"></select>
+        </div>
+
+        <div class="stat-cards" style="margin-bottom:16px">
+            <div class="stat-card primary"><div class="label">总车位</div><div class="value" id="stat-total">-</div></div>
+            <div class="stat-card danger"><div class="label">已占用</div><div class="value" id="stat-occupied">-</div></div>
+            <div class="stat-card warning"><div class="label">已预约</div><div class="value" id="stat-reserved">-</div></div>
+            <div class="stat-card success"><div class="label">剩余</div><div class="value" id="stat-available">-</div></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">选择车位 <span id="selected-spot-label" style="font-weight:normal;font-size:13px;color:#999;"></span></div>
+            <div id="spot-map" style="display:flex;flex-wrap:wrap;gap:6px;max-height:360px;overflow-y:auto;"></div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <div class="card-title">车辆信息</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>车牌号</label>
+                    <input type="text" id="checkin-plate" class="form-control" placeholder="例: 京A12345" maxlength="10">
+                </div>
+                <div class="form-group">
+                    <label>计费方式</label>
+                    <select id="checkin-billing" class="form-control"></select>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-lg btn-block" onclick="doCheckIn()">确认入库</button>
+        </div>
+    </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/checkin.js"></script>
+</body>
+</html>

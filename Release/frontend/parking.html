@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>停车场管理 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-container">
+    <div class="sidebar">
+        <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
+        <div class="sidebar-nav">
+            <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
+            <a class="nav-item active" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
+            <a class="nav-item" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
+            <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
+            <a class="nav-item" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
+            <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
+            <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
+            <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
+            <a class="nav-item" id="nav-chat" href="/chat.html"><span class="icon">&#128172;</span> 联系客服</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
+            <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="page-header"><h1>停车场管理</h1><p>添加、编辑、删除停车场</p></div>
+        <div id="alert-box"></div>
+
+        <div class="card">
+            <div class="card-title">添加停车场</div>
+            <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;">
+                <div class="form-group" style="margin:0;"><label>名称</label><input type="text" id="new-lot-name" class="form-control" placeholder="如：停车场3" style="width:140px;"></div>
+                <div class="form-group" style="margin:0;"><label>车位数</label><input type="number" id="new-lot-capacity" class="form-control" value="50" style="width:100px;"></div>
+                <div class="form-group" style="margin:0;"><label>费率(元/时)</label><input type="number" id="new-lot-fee" class="form-control" value="5.00" step="0.5" style="width:100px;"></div>
+                <button class="btn btn-primary" onclick="addLot()">添加</button>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <div class="card-title">停车场列表</div>
+            <div id="lots-container"><p style="color:#999">加载中...</p></div>
+        </div>
+    </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/parking.js"></script>
+</body>
+</html>

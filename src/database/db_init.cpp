@@ -36,6 +36,7 @@ bool DBInit::createTables(const AppConfig& cfg) {
         "  truename VARCHAR(255) NOT NULL,"
         "  role VARCHAR(20) DEFAULT 'user',"
         "  balance DECIMAL(10,2) DEFAULT 0.00,"
+        "  status TINYINT DEFAULT 1,"  // 1=正常 0=已注销
         "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 

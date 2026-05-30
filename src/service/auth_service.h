@@ -9,6 +9,8 @@
 #include "../sha256.h"
 #include "../permissions.h"
 
+#include "model/user.h"
+
 class AuthService : public BaseService {
 public:
     static AuthService& instance();

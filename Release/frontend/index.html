@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .login-tabs {
+            display: flex;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 24px;
+        }
+        .login-tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px 0;
+            cursor: pointer;
+            font-size: 15px;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .login-tab:hover { color: #00aa7f; }
+        .login-tab.active {
+            color: #00aa7f;
+            border-bottom-color: #00aa7f;
+            font-weight: 600;
+        }
+        .auth-form h2 { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-banner">
+                <h1>Smart Parking</h1>
+                <p>智慧停车管理系统<br>高效管理 · 智能识别 · 数据可视化</p>
+            </div>
+            <div class="auth-form">
+                <h2>欢迎登录</h2>
+                <div class="login-tabs">
+                    <div class="login-tab active" id="tab-user" onclick="switchLoginTab('user')">用户登录</div>
+                    <div class="login-tab" id="tab-admin" onclick="switchLoginTab('admin')">管理员登录</div>
+                </div>
+                <p class="subtitle" id="login-subtitle">请输入您的账户信息</p>
+                <div id="alert-box"></div>
+                <div class="form-group">
+                    <label id="label-username">用户名</label>
+                    <input type="text" id="username" class="form-control" placeholder="请输入用户名" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="password" class="form-control" placeholder="请输入密码" autocomplete="current-password">
+                </div>
+                <button class="btn btn-primary btn-block btn-lg" onclick="handleLogin()" id="login-btn">登 录</button>
+                <div class="auth-footer" id="auth-footer">
+                    还没有账号？<a href="/register.html">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/common.js"></script>
+    <script src="/js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统初始化 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .init-page { display:flex; justify-content:center; align-items:center; min-height:100vh; background:#f5f7fa; padding:24px; }
+        .init-container { width:100%; max-width:480px; }
+        .init-container h2 { text-align:center; margin-bottom:4px; }
+        .init-container .subtitle { text-align:center; color:#999; margin-bottom:24px; font-size:14px; }
+        .init-card { background:#fff; border-radius:12px; padding:28px 24px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.06); }
+        .init-card h3 { font-size:15px; margin-bottom:16px; padding-bottom:10px; border-bottom:1px solid #f0f0f0; }
+        .field-hint { font-size:12px; color:#999; margin-top:2px; }
+        .ready-card { text-align:center; padding:40px 24px; }
+        .ready-card .check-icon { font-size:48px; margin-bottom:12px; }
+        .reinit-toggle { text-align:center; margin-top:20px; }
+        .reinit-toggle a { color:#ccc; font-size:13px; cursor:pointer; text-decoration:none; }
+        .reinit-toggle a:hover { color:#ff4d4f; }
+        .reinit-section { display:none; }
+        .reinit-section.show { display:block; }
+    </style>
+</head>
+<body>
+<div class="init-page">
+    <!-- ====== 未初始化：初始化表单 ====== -->
+    <div class="init-container" id="section-new">
+        <h2>系统初始化</h2>
+        <p class="subtitle">首次使用，配置数据库及停车场信息</p>
+        <div id="alert-box"></div>
+
+        <div class="init-card">
+            <h3>1. 数据库连接</h3>
+            <div class="form-row">
+                <div class="form-group"><label>主机</label><input type="text" id="host" class="form-control" value="localhost"></div>
+                <div class="form-group"><label>端口</label><input type="number" id="port" class="form-control" value="3306"></div>
+            </div>
+            <div class="form-group"><label>数据库名</label><input type="text" id="database" class="form-control" value="smart_parking"><div class="field-hint">如果数据库不存在将自动创建，存在则清空重建</div></div>
+            <div class="form-row">
+                <div class="form-group"><label>用户名</label><input type="text" id="user" class="form-control" value="root"></div>
+                <div class="form-group"><label>密码</label><input type="password" id="password" class="form-control" placeholder="MySQL 密码"></div>
+            </div>
+        </div>
+
+        <div class="init-card">
+            <h3>2. 停车场设置</h3>
+            <div class="form-row">
+                <div class="form-group"><label>停车场名称</label><input type="text" id="parking_name" class="form-control" value="智慧停车场"></div>
+                <div class="form-group"><label>服务端口</label><input type="number" id="server_port" class="form-control" value="8080"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>费率 (元/小时)</label><input type="number" id="fee" class="form-control" value="5.00" step="0.5"></div>
+                <div class="form-group"><label>总车位数</label><input type="number" id="capacity" class="form-control" value="100"></div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary btn-block btn-lg" onclick="handleInit()" id="init-btn">开始初始化</button>
+        <p style="text-align:center;color:#999;font-size:12px;margin-top:12px;">初始化后将创建默认管理员 admin / admin123</p>
+    </div>
+
+    <!-- ====== 已初始化：就绪页面 ====== -->
+    <div class="init-container" id="section-ready" style="display:none">
+        <div class="init-card ready-card">
+            <div class="check-icon" style="font-size:56px;color:#52c41a;">&#10003;</div>
+            <h2 style="margin-bottom:8px;">系统已就绪</h2>
+            <p style="color:#666;margin-bottom:4px;" id="ready-parking-name"></p>
+            <p style="color:#999;font-size:13px;">数据库已配置，可以正常使用</p>
+            <a href="/index.html" class="btn btn-primary btn-lg" style="margin-top:20px;">进入登录页</a>
+        </div>
+
+        <div class="reinit-toggle">
+            <a onclick="toggleReinit()" id="reinit-toggle-link">重置系统</a>
+        </div>
+        <div class="init-card reinit-section" id="reinit-section">
+            <h3 style="color:#ff4d4f;">重置系统</h3>
+            <p style="font-size:13px;color:#999;margin-bottom:16px;">将清空所有数据并重新初始化，需要管理员权限。</p>
+            <div id="reinit-alert-box"></div>
+            <div class="form-row">
+                <div class="form-group"><input type="text" id="reinit-user" class="form-control" placeholder="管理员用户名"></div>
+                <div class="form-group"><input type="password" id="reinit-pass" class="form-control" placeholder="管理员密码"></div>
+            </div>
+            <button class="btn btn-danger" onclick="handleReinit()" id="reinit-btn">确认重置</button>
+            <span style="color:#999;font-size:12px;margin-left:12px;">需要二次确认</span>
+        </div>
+    </div>
+</div>
+
+<script src="/js/common.js"></script>
+<script src="/js/init.js"></script>
+</body>
+</html>
