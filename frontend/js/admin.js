@@ -29,6 +29,7 @@ function switchTab(tab, ev) {
         if (!document.getElementById('export-end').value) document.getElementById('export-end').value = today;
     }
     else if(tab==='notice') loadBulletins();
+    else if(tab==='messages') { loadConversations(); if(_selectedMsgUserId>0)selectConversation(_selectedMsgUserId); }
     else if(tab==='settings') { /* static content, no loading needed */ }
 }
 
@@ -278,8 +279,10 @@ async function loadBlacklist() {
     tbody.innerHTML=list.map(e=>`<tr data-bl-id="${e.id}"><td>${e.id}</td><td><strong>${escapeHtml(e.license_plate)}</strong></td><td>${escapeHtml(e.reason||'-')}</td><td>${formatDateTime(e.created_at)}</td><td><button class="btn btn-danger btn-sm btn-remove-blacklist">移除</button></td></tr>`).join('');
 }
 async function addBlacklist() {
-    const plate=document.getElementById('bl-plate').value.trim(), reason=document.getElementById('bl-reason').value.trim();
+    const plate=document.getElementById('bl-plate').value.trim().toUpperCase(), reason=document.getElementById('bl-reason').value.trim();
     if(!plate){showError('bl-alert','请输入车牌号');return;}
+    if(plate.length<7||plate.length>8){showError('bl-alert','车牌号格式不正确，应为省份汉字+字母+5-6位数字/字母');return;}
+    if(!/^[一-鿿][A-Z][A-Z0-9]{5,6}$/.test(plate)){showError('bl-alert','车牌号格式不正确');return;}
     const r=await post('/api/blacklist',{license_plate:plate,reason});
     if(r&&r.ok){showSuccess('bl-alert','已添加');document.getElementById('bl-plate').value='';document.getElementById('bl-reason').value='';loadBlacklist();}
     else showError('bl-alert',r?.data?.error||'添加失败');
@@ -416,6 +419,97 @@ async function saveNotice() {
     if (r && r.ok) showSuccess('notice-alert', '公告已保存');
     else showError('notice-alert', r?.data?.error || '保存失败');
 }
+
+// ========== Message Management (Admin) ==========
+let _selectedMsgUserId = 0;
+let _msgPollTimer = null;
+
+async function loadConversations() {
+    const res = await get('/api/message/conversations');
+    const list = document.getElementById('conversation-list');
+    if (!res || !res.ok) { list.innerHTML = '<p style="color:#999;padding:16px;text-align:center;">加载失败</p>'; return; }
+    const convos = res.data.conversations || [];
+    if (!convos.length) { list.innerHTML = '<p style="color:#999;padding:16px;text-align:center;">暂无用户消息</p>'; return; }
+    list.innerHTML = convos.map(c => `
+        <div class="msg-convo-item" data-uid="${c.user_id}"
+             style="padding:10px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s"
+             onclick="selectConversation(${c.user_id})"
+             onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background=''">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <strong style="font-size:13px;">${escapeHtml(c.truename || c.username)}</strong>
+                ${c.unread_count > 0 ? '<span class="badge badge-danger" style="font-size:11px;">' + c.unread_count + '</span>' : ''}
+            </div>
+            <div style="font-size:12px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                ${escapeHtml((c.last_message||'').substring(0, 40))}</div>
+            <div style="font-size:11px;color:#bbb;margin-top:1px;">${formatDateTime(c.last_time)}</div>
+        </div>`).join('');
+
+    // Highlight the currently selected user
+    if (_selectedMsgUserId > 0) {
+        const sel = list.querySelector(`.msg-convo-item[data-uid="${_selectedMsgUserId}"]`);
+        if (sel) sel.style.background = '#e6f7ff';
+    }
+}
+
+async function selectConversation(userId) {
+    _selectedMsgUserId = userId;
+    document.getElementById('msg-chat-header').textContent = '对话中...';
+    document.getElementById('msg-chat-messages').innerHTML = '<p style="color:#999;text-align:center;padding:40px;">加载中...</p>';
+    document.getElementById('msg-input').value = '';
+    document.getElementById('msg-input').focus();
+
+    // Highlight in list
+    document.querySelectorAll('.msg-convo-item').forEach(el => el.style.background = '');
+    const item = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
+    if (item) item.style.background = '#e6f7ff';
+
+    const res = await get('/api/message/history?user_id=' + userId);
+    const container = document.getElementById('msg-chat-messages');
+    if (!res || !res.ok) { container.innerHTML = '<p style="color:#999;text-align:center;">加载失败</p>'; return; }
+    const messages = res.data.messages || [];
+    if (!messages.length) { container.innerHTML = '<p style="color:#999;text-align:center;">暂无消息</p>'; return; }
+
+    const currentUser = getUser();
+    let html = '';
+    messages.forEach(m => {
+        const isSent = String(m.sender_id) === String(currentUser.id);
+        const time = (m.created_at || '').split(' ')[1] || '';
+        html += `<div style="max-width:70%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.4;word-break:break-word;align-self:${isSent?'flex-end':'flex-start'};background:${isSent?'#00aa7f':'#f0f0f0'};color:${isSent?'#fff':'#333'};${isSent?'':'border-bottom-left-radius:4px;'};${isSent?'border-bottom-right-radius:4px':''}">
+            ${escapeHtml(m.content)}
+            <div style="font-size:10px;margin-top:2px;opacity:0.7;text-align:${isSent?'right':'left'}">${time}</div>
+        </div>`;
+    });
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+
+    // Update header
+    const userItem = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
+    const userName = userItem ? userItem.querySelector('strong').textContent : '用户';
+    document.getElementById('msg-chat-header').textContent = '与 ' + userName + ' 的对话';
+}
+
+async function sendAdminReply() {
+    if (_selectedMsgUserId <= 0) { showError('msg-alert', '请先选择一位用户'); return; }
+    const input = document.getElementById('msg-input');
+    const content = input.value.trim();
+    if (!content) return;
+    input.value = '';
+    const res = await post('/api/message/send', { receiver_id: _selectedMsgUserId, content });
+    if (res && res.ok) {
+        selectConversation(_selectedMsgUserId);
+        loadConversations();
+    } else {
+        showError('msg-alert', res?.data?.error || '发送失败');
+    }
+}
+
+// Enter key to send
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('msg-input');
+    if (input) input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminReply(); }
+    });
+});
 
 // ========== Parking Fee (Task D) ==========
 async function calculateParkingFee() {

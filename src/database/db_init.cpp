@@ -83,7 +83,9 @@ bool DBInit::createTables(const AppConfig& cfg) {
         "  max_daily_fee DECIMAL(10,2) DEFAULT NULL,"
         "  tier_config TEXT DEFAULT NULL,"
         "  description TEXT DEFAULT NULL,"
-        "  is_active TINYINT DEFAULT 1"
+        "  P_name VARCHAR(255) DEFAULT '',"
+        "  is_active TINYINT DEFAULT 1,"
+        "  UNIQUE KEY idx_rule_type (rule_type, P_name)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
         "CREATE TABLE IF NOT EXISTS PASS_PLAN ("
@@ -92,7 +94,9 @@ bool DBInit::createTables(const AppConfig& cfg) {
         "  duration_days INT NOT NULL DEFAULT 30,"
         "  price DECIMAL(10,2) NOT NULL DEFAULT 300.00,"
         "  description TEXT DEFAULT NULL,"
-        "  is_active TINYINT DEFAULT 1"
+        "  P_name VARCHAR(255) DEFAULT '',"
+        "  is_active TINYINT DEFAULT 1,"
+        "  UNIQUE KEY idx_plan_name (plan_name, P_name)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
         "CREATE TABLE IF NOT EXISTS BALANCE_RECORD ("
@@ -297,11 +301,14 @@ bool DBInit::createTables(const AppConfig& cfg) {
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN prepaid DECIMAL(10,2) DEFAULT 0.00");
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN spot_number INT DEFAULT 0");
-    mysql_query(mysql, "ALTER TABLE BILLING_RULE ADD COLUMN P_name VARCHAR(255) DEFAULT '停车场1'");
-    mysql_query(mysql, "ALTER TABLE PASS_PLAN ADD COLUMN P_name VARCHAR(255) DEFAULT '停车场1'");
+    mysql_query(mysql, "ALTER TABLE BILLING_RULE ADD COLUMN P_name VARCHAR(255) DEFAULT ''");
+    mysql_query(mysql, "ALTER TABLE PASS_PLAN ADD COLUMN P_name VARCHAR(255) DEFAULT ''");
     // Backfill NULL P_name values on existing rows
-    mysql_query(mysql, "UPDATE BILLING_RULE SET P_name='停车场1' WHERE P_name IS NULL OR P_name=''");
-    mysql_query(mysql, "UPDATE PASS_PLAN SET P_name='停车场1' WHERE P_name IS NULL OR P_name=''");
+    mysql_query(mysql, "UPDATE BILLING_RULE SET P_name='' WHERE P_name IS NULL");
+    mysql_query(mysql, "UPDATE PASS_PLAN SET P_name='' WHERE P_name IS NULL");
+    // Add UNIQUE constraints to prevent duplicate inserts on restart
+    mysql_query(mysql, "ALTER TABLE BILLING_RULE ADD UNIQUE INDEX idx_rule_type (rule_type, P_name)");
+    mysql_query(mysql, "ALTER TABLE PASS_PLAN ADD UNIQUE INDEX idx_plan_name (plan_name, P_name)");
 
     // Remove old parking lot name
     mysql_query(mysql, "DELETE FROM PARKING_LOT WHERE P_name='智慧停车场'");

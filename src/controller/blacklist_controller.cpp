@@ -1,5 +1,6 @@
 #include "blacklist_controller.h"
 #include "../service/blacklist_service.h"
+#include "../service/plate_service.h"
 #include "../permissions.h"
 
 std::string BlacklistController::getPrefix() const { return "/api/blacklist"; }
@@ -20,6 +21,8 @@ void BlacklistController::registerRoutes(crow::SimpleApp& app) {
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
         std::string plate = body["license_plate"].s();
+        if (!PlateService::validatePlate(plate))
+            return BaseController::errorResponse(400, "车牌号格式不正确");
         std::string reason = body.has("reason") ? std::string(body["reason"].s()) : "";
         std::string error;
         if (!BlacklistService::instance().add(plate, reason, error))

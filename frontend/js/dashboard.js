@@ -32,6 +32,7 @@ function applyPermUI() {
     document.getElementById('card-interceptions').style.display = hasPerm('vehicle.blacklist') ? '' : 'none';
     document.getElementById('card-plate-recognition').style.display = hasPerm('plate.recognize') ? '' : 'none';
     document.getElementById('card-parked-vehicles').style.display = hasPerm('vehicle.query') ? '' : 'none';
+    document.getElementById('card-settings').style.display = hasPerm('parking.settings') ? '' : 'none';
 }
 
 function initPieChart() {
@@ -335,6 +336,86 @@ async function confirmRecharge() {
     } else showError('recharge-alert', res?.data?.error || '充值失败');
 }
 
+// ========== Parking Settings (Dashboard) ==========
+async function loadParkingSettings() {
+    const container = document.getElementById('parking-lots-settings');
+    if (!container || !hasPerm('parking.settings')) return;
+    const res = await get('/api/parking/list');
+    if (!res || !res.ok || !res.data.lots) { container.innerHTML = '<p style="color:#999">加载失败</p>'; return; }
+    const lots = res.data.lots;
+    container.innerHTML = lots.map(l => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+            <strong style="min-width:100px;">${escapeHtml(l.P_name)}</strong>
+            <span style="color:#999">${l.P_current_count}/${l.P_total_count} 占用</span>
+            <input type="number" class="parking-capacity-input" value="${l.P_total_count}" min="1"
+                   style="width:60px;padding:2px 6px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px;"
+                   data-pname="${escapeHtml(l.P_name)}" data-orig="${l.P_total_count}">
+            <span style="font-size:12px;color:#999">车位</span>
+            <input type="number" class="parking-fee-input" value="${parseFloat(l.P_fee).toFixed(1)}" step="0.5" min="0"
+                   style="width:60px;padding:2px 6px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px;"
+                   data-pname="${escapeHtml(l.P_name)}" data-orig="${l.P_fee}">
+            <span style="font-size:12px;color:#999">元/时</span>
+            <button class="btn btn-sm btn-primary" style="padding:2px 8px;font-size:12px;display:none;" onclick="saveParkingSetting(this)">保存</button>
+            <button class="btn btn-sm btn-danger" style="padding:2px 8px;font-size:12px;margin-left:auto;" onclick="deleteParkingLot(${l.P_id},'${escapeHtml(l.P_name)}')">删除</button>
+        </div>`).join('') + `
+        <div style="margin-top:8px;">
+            <button class="btn btn-sm btn-default" onclick="showAddParkingForm()">+ 添加停车场</button>
+            <div id="add-parking-form" style="display:none;margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input type="text" id="new-parking-name" class="form-control" placeholder="停车场名称" style="width:140px;padding:4px 8px;font-size:13px;">
+                <input type="number" id="new-parking-capacity" class="form-control" value="50" min="1" style="width:70px;padding:4px 8px;font-size:13px;">
+                <span style="font-size:12px;color:#999">车位</span>
+                <input type="number" id="new-parking-fee" class="form-control" value="5.0" step="0.5" min="0" style="width:70px;padding:4px 8px;font-size:13px;">
+                <span style="font-size:12px;color:#999">元/时</span>
+                <button class="btn btn-sm btn-primary" onclick="addParkingLot()">确认添加</button>
+                <button class="btn btn-sm btn-default" onclick="hideAddParkingForm()">取消</button>
+            </div>
+        </div>`;
+    // Show save buttons on input change
+    container.querySelectorAll('.parking-capacity-input, .parking-fee-input').forEach(el => {
+        el.addEventListener('change', function() {
+            const saveBtn = this.closest('div').querySelector('.btn-primary');
+            if (saveBtn) saveBtn.style.display = 'inline-block';
+        });
+    });
+}
+
+async function saveParkingSetting(btn) {
+    const row = btn.closest('div');
+    const name = row.querySelector('strong').textContent;
+    const capacity = parseInt(row.querySelector('.parking-capacity-input').value);
+    const fee = parseFloat(row.querySelector('.parking-fee-input').value);
+    if (capacity < 1) { showError('vehicle-alert', '车位数至少为1'); return; }
+    const res = await put('/api/parking/settings', { P_name: name, P_total_count: capacity, P_fee: fee });
+    if (res && res.ok) { btn.style.display = 'none'; loadParkingSettings(); }
+    else showError('vehicle-alert', res?.data?.error || '保存失败');
+}
+
+async function deleteParkingLot(id, name) {
+    if (!confirm('确定删除停车场 "' + name + '"？关联的计费规则和套餐也将被清理。')) return;
+    const res = await del('/api/parking/lot/' + id);
+    if (res && res.ok) { loadParkingSettings(); loadParkingLots(); }
+    else showError('vehicle-alert', res?.data?.error || '删除失败');
+}
+
+function showAddParkingForm() {
+    const form = document.getElementById('add-parking-form');
+    if (form) form.style.display = 'flex';
+}
+function hideAddParkingForm() {
+    const form = document.getElementById('add-parking-form');
+    if (form) form.style.display = 'none';
+}
+async function addParkingLot() {
+    const name = document.getElementById('new-parking-name').value.trim();
+    const capacity = parseInt(document.getElementById('new-parking-capacity').value);
+    const fee = parseFloat(document.getElementById('new-parking-fee').value);
+    if (!name) { showError('vehicle-alert', '请输入停车场名称'); return; }
+    if (capacity < 1) { showError('vehicle-alert', '车位数至少为1'); return; }
+    const res = await post('/api/parking/lot', { P_name: name, P_total_count: capacity, P_fee: fee });
+    if (res && res.ok) { hideAddParkingForm(); loadParkingSettings(); loadParkingLots(); }
+    else showError('vehicle-alert', res?.data?.error || '添加失败');
+}
+
 document.getElementById('plate-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleCheckIn(); });
 document.getElementById('parked-search-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadParkedVehicles(); });
 
@@ -342,6 +423,7 @@ document.getElementById('parked-search-input')?.addEventListener('keydown', e =>
 applyPermUI();
 initPieChart();
 loadParkingLots();  // calls loadStatus() + loadPassPlans() after setting currentLot
+loadParkingSettings();
 loadRecentRecords();
 loadBalance();
 loadBulletin();
