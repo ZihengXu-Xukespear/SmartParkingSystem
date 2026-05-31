@@ -42,6 +42,10 @@ Desktop.ini
 .claude/
 CLAUDE.md
 
+<<<<<<< HEAD
 已知问题.txt
 
 # Clean branch test commit
+=======
+已知问题.txt
+>>>>>>> 589ec29a8bcb4ecaee2bbb530d35d6ae94d8eda8
