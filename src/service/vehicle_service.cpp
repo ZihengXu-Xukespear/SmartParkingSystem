@@ -263,10 +263,13 @@ double VehicleService::calculateFee(MYSQL* mysql, const std::string& plate, cons
         MYSQL_RES* res = mysql_store_result(mysql);
         if (res) {
             MYSQL_ROW row = mysql_fetch_row(res);
-            if (row && std::stoi(row[0]) > 0) {
-                mysql_free_result(res);
-                return 0.0;
-            }
+     if (row && std::stoi(row[0]) > 0) {
+    std::cout << "[月卡] 车辆 " << plate << " 拥有有效月卡，费用免收" << std::endl;
+    mysql_free_result(res);
+    return 0.0;
+} else {
+    std::cout << "[月卡] 车辆 " << plate << " 无有效月卡，按普通计费" << std::endl;
+}
             mysql_free_result(res);
         }
     }

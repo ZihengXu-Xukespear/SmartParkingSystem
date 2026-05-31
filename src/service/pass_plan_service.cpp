@@ -118,6 +118,8 @@ bool PassPlanService::purchase(int userId, int planId, const std::string& licens
             return false;
         }
     }
+    // 新增日志：
+    std::cout << "[套餐] 用户 " << userId << " 成功购买月卡，车牌 " << licensePlate << "，有效期至 " << /* 这里可以拼接 end_date */ << std::endl;
 
     if (!tx.commit()) {
         BalanceService::instance().refund(userId, price, "refund", "事务提交失败退款 " + licensePlate);
