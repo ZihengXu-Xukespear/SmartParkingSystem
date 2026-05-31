@@ -69,6 +69,24 @@ CREATE TABLE IF NOT EXISTS BILLING_RULE (
     is_active TINYINT DEFAULT 1
 ) ENGINE=InnoDB;
 
+-- 套餐定价表（月卡/季卡/年卡 价格配置）
+CREATE TABLE IF NOT EXISTS pass_plan (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    plan_name VARCHAR(50) NOT NULL COMMENT '套餐名称：月卡/季卡/年卡',
+    duration_days INT NOT NULL COMMENT '有效天数',
+    price DECIMAL(10,2) NOT NULL COMMENT '销售价格',
+    description VARCHAR(255) DEFAULT '' COMMENT '套餐说明',
+    is_active TINYINT DEFAULT 1 COMMENT '1=启用 0=禁用',
+    P_name VARCHAR(255) NOT NULL DEFAULT '停车场1' COMMENT '所属停车场',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO pass_plan (plan_name, duration_days, price, description, is_active, P_name)
+VALUES
+('月卡', 30, 300.00, '30天畅停，适合短期需求', 1, '停车场1'),
+('季卡', 90, 800.00, '90天优惠，每天不到9元', 1, '停车场1'),
+('年卡', 365, 2880.00, '全年无忧，每天不到8元', 1, '停车场1');
+
 -- 月卡表
 CREATE TABLE IF NOT EXISTS MONTHLY_PASS (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -80,6 +98,8 @@ CREATE TABLE IF NOT EXISTS MONTHLY_PASS (
     is_active TINYINT DEFAULT 1,
     INDEX idx_plate (license_plate)
 ) ENGINE=InnoDB;
+
+ALTER TABLE MONTHLY_PASS ADD COLUMN user_id INT NOT NULL;
 
 -- 插入默认计费规则
 INSERT IGNORE INTO BILLING_RULE (rule_name, rule_type, free_minutes, hourly_rate, max_daily_fee, description, is_active) VALUES
