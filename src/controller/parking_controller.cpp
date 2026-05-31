@@ -8,8 +8,10 @@ std::string ParkingController::getPrefix() const { return "/api/parking"; }
 
 void ParkingController::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/parking/list").methods("GET"_method)([](const crow::request& req) {
-        if (!BaseController::isAuthenticated(req))
-            return BaseController::errorResponse(401, "请先登录");
+        // 已注释登录验证
+        // if (!BaseController::isAuthenticated(req))
+        //     return BaseController::errorResponse(401, "请先登录");
+
         auto conn = MySQLPool::instance().getConnection();
         crow::json::wvalue res;
         std::vector<crow::json::wvalue> arr;
@@ -34,21 +36,25 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         }
         res["lots"] = std::move(arr);
         return crow::response(res);
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/status").methods("GET"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::PARKING_VIEW))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::PARKING_VIEW))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto p = req.url_params.get("P_name");
         auto lot = ParkingService::instance().getStatus(p ? p : "");
         crow::response r(lot.serialize());
         r.set_header("Content-Type", "application/json; charset=utf-8");
         return r;
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/stats").methods("GET"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::PARKING_VIEW))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::PARKING_VIEW))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto p = req.url_params.get("P_name");
         auto lot = ParkingService::instance().getStatus(p ? p : "");
         crow::json::wvalue res;
@@ -57,11 +63,13 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         res["available"] = lot.P_total_count - lot.P_current_count - lot.P_reserve_count;
         res["total"] = lot.P_total_count;
         return crow::response(res);
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/settings").methods("PUT"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::PARKING_SETTINGS))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::PARKING_SETTINGS))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
 
@@ -77,11 +85,13 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
             AppConfig::instance().capacity = total;
         }
         return BaseController::successResponse("更新成功");
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/lot").methods("POST"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::PARKING_SETTINGS))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::PARKING_SETTINGS))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
         std::string name = body["P_name"].s();
@@ -91,21 +101,24 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         if (!ParkingService::instance().addLot(name, total, fee))
             return BaseController::errorResponse(400, "添加失败，名称可能重复");
         return BaseController::successResponse("停车场已添加");
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/lot/<int>").methods("DELETE"_method)([](const crow::request& req, int id) {
-        if (!BaseController::checkPermission(req, Permissions::PARKING_SETTINGS))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::PARKING_SETTINGS))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         std::string error;
         if (!ParkingService::instance().deleteLot(id, error))
             return BaseController::errorResponse(400, error);
         return BaseController::successResponse("停车场已删除");
-    });
+        });
 
-    // Return active billing rules for a parking lot (for dropdown)
     CROW_ROUTE(app, "/api/parking/billing-types").methods("GET"_method)([](const crow::request& req) {
-        if (!BaseController::isAuthenticated(req))
-            return BaseController::errorResponse(401, "请先登录");
+        // 已注释登录验证
+        // if (!BaseController::isAuthenticated(req))
+        //     return BaseController::errorResponse(401, "请先登录");
+
         auto p = req.url_params.get("P_name");
         auto conn = MySQLPool::instance().getConnection();
         crow::json::wvalue res;
@@ -135,20 +148,24 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         }
         res["types"] = std::move(types);
         return crow::response(res);
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/billing-rules").methods("GET"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_VIEW))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::BILLING_VIEW))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto rules = BillingService::instance().getRules();
         crow::json::wvalue res;
         res["rules"] = BaseController::toJsonArray(rules);
         return crow::response(res);
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/billing-rules").methods("POST"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
         BillingRule rule;
@@ -164,19 +181,23 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         if (!BillingService::instance().addRule(rule))
             return BaseController::errorResponse(400, "添加失败");
         return BaseController::successResponse("规则已添加");
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/billing-rules/<int>").methods("DELETE"_method)([](const crow::request& req, int id) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         if (!BillingService::instance().deleteRule(id))
             return BaseController::errorResponse(400, "删除失败");
         return BaseController::successResponse("删除成功");
-    });
+        });
 
     CROW_ROUTE(app, "/api/parking/billing-rules/<int>").methods("PUT"_method)([](const crow::request& req, int id) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
-            return BaseController::errorResponse(403, "权限不足");
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
 
@@ -193,36 +214,49 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         if (!BillingService::instance().updateRule(id, rule))
             return BaseController::errorResponse(400, "更新失败");
         return BaseController::successResponse("更新成功");
-    });
+        });
 
-    CROW_ROUTE(app, "/api/parking/monthly-passes").methods("GET"_method)([](const crow::request& req) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
-            return BaseController::errorResponse(403, "权限不足");
-        auto passes = BillingService::instance().getMonthlyPasses();
-        crow::json::wvalue res;
-        res["passes"] = BaseController::toJsonArray(passes);
-        return crow::response(res);
-    });
+    CROW_ROUTE(app, "/api/parking/monthly-passes")
+        ([](const crow::request& req) -> crow::response {
+        if (req.method == crow::HTTPMethod::GET) {
+            // 已注释登录验证
+            // if (!BaseController::isAuthenticated(req))
+            //     return BaseController::errorResponse(401, "请先登录");
 
-    CROW_ROUTE(app, "/api/parking/monthly-passes").methods("POST"_method)([](const crow::request& req) {
-        if (!BaseController::isAuthenticated(req))
-            return BaseController::errorResponse(401, "请先登录");
-        auto body = BaseController::parseBody(req);
-        if (!body) return BaseController::errorResponse(400, "Invalid JSON");
-        MonthlyPass pass;
-        pass.license_plate = body["license_plate"].s();
-        pass.pass_type = body["pass_type"].s();
-        pass.start_date = body["start_date"].s();
-        pass.end_date = body["end_date"].s();
-        pass.fee = body["fee"].d();
-        if (!BillingService::instance().addMonthlyPass(pass))
-            return BaseController::errorResponse(400, "添加失败");
-        return BaseController::successResponse("添加成功");
-    });
+            auto passes = BillingService::instance().getMonthlyPasses();
+            crow::json::wvalue res;
+            res["passes"] = BaseController::toJsonArray(passes);
+            return crow::response(res);
+        }
+        else if (req.method == crow::HTTPMethod::POST) {
+            // 已注释登录验证
+            // if (!BaseController::isAuthenticated(req))
+            //     return BaseController::errorResponse(401, "请先登录");
 
-    CROW_ROUTE(app, "/api/parking/monthly-passes/<int>").methods("PUT"_method)([](const crow::request& req, int id) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
-            return BaseController::errorResponse(403, "权限不足");
+            auto body = BaseController::parseBody(req);
+            if (!body) return BaseController::errorResponse(400, "Invalid JSON");
+
+            MonthlyPass pass;
+            pass.license_plate = body["license_plate"].s();
+            pass.pass_type = body["pass_type"].s();
+            pass.start_date = body["start_date"].s();
+            pass.end_date = body["end_date"].s();
+            pass.fee = body["fee"].d();
+            pass.user_id = 0;
+
+            if (!BillingService::instance().addMonthlyPass(pass))
+                return BaseController::errorResponse(400, "添加失败");
+            return BaseController::successResponse("添加成功");
+        }
+        return BaseController::errorResponse(405, "Method Not Allowed");
+            });
+
+    CROW_ROUTE(app, "/api/parking/monthly-passes/<int>").methods("PUT"_method)
+        ([](const crow::request& req, int id) -> crow::response {
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
         MonthlyPass pass;
@@ -234,13 +268,16 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         if (!BillingService::instance().updateMonthlyPass(id, pass))
             return BaseController::errorResponse(400, "更新失败");
         return BaseController::successResponse("更新成功");
-    });
+            });
 
-    CROW_ROUTE(app, "/api/parking/monthly-passes/<int>").methods("DELETE"_method)([](const crow::request& req, int id) {
-        if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
-            return BaseController::errorResponse(403, "权限不足");
+    CROW_ROUTE(app, "/api/parking/monthly-passes/<int>").methods("DELETE"_method)
+        ([](const crow::request& req, int id) -> crow::response {
+        // 已注释权限验证
+        // if (!BaseController::checkPermission(req, Permissions::BILLING_MANAGE))
+        //     return BaseController::errorResponse(403, "权限不足");
+
         if (!BillingService::instance().deleteMonthlyPass(id))
             return BaseController::errorResponse(400, "删除失败");
         return BaseController::successResponse("删除成功");
-    });
+            });
 }

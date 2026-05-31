@@ -70,4 +70,5 @@ void PassPlanController::registerRoutes(crow::SimpleApp& app) {
             return BaseController::errorResponse(400, error);
         return BaseController::successResponse("月卡购买成功");
     });
+
 }

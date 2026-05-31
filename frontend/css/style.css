@@ -527,3 +527,44 @@ table tr:hover { background: var(--primary-light); }
 .mb-2 { margin-bottom: 16px; }
 .mb-3 { margin-bottom: 24px; }
 .hidden { display: none; }
+
+/* ==================== 套餐卡片样式（支持 类型 + 生效/到期时间） ==================== */
+.package-container {
+    padding: 4px 0;
+}
+
+/* 套餐单项卡片 */
+.package-item {
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: var(--primary-light);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--primary);
+}
+
+    .package-item:last-child {
+        margin-bottom: 0;
+    }
+
+/* 套餐名称（月卡/季卡/年卡） */
+.package-type {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 6px;
+}
+
+/* 生效/到期时间 */
+.package-time {
+    font-size: 12px;
+    color: var(--text-light);
+    line-height: 1.4;
+}
+
+/* 暂无套餐样式 */
+.package-empty {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+}

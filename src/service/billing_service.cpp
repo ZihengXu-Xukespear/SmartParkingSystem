@@ -1,5 +1,5 @@
 #include "billing_service.h"
-#include "base_service.h" 
+#include "base_service.h"
 
 BillingService& BillingService::instance() {
     static BillingService inst;
@@ -73,12 +73,18 @@ bool BillingService::updateRule(int id, const BillingRule& rule) {
     return executeQuery(mysql, sql);
 }
 
-std::vector<MonthlyPass> BillingService::getMonthlyPasses() {
+// ===================== 【通用】获取指定用户的套餐 =====================
+std::vector<MonthlyPass> BillingService::getMonthlyPasses(int userId) {
     std::vector<MonthlyPass> passes;
-    auto conn = getConnection();
+    auto conn = this->getConnection();
     if (!conn) return passes;
 
-    if (mysql_query(conn->get(), "SELECT id,license_plate,pass_type,start_date,end_date,fee,is_active,user_id,plan_id FROM MONTHLY_PASS ORDER BY id") != 0)
+    std::string sql = "SELECT id,license_plate,pass_type,start_date,end_date,fee,is_active,user_id "
+        "FROM MONTHLY_PASS "
+        "WHERE user_id = " + std::to_string(userId) +
+        " AND is_active = 1 AND end_date >= NOW()";
+
+    if (mysql_query(conn->get(), sql.c_str()) != 0)
         return passes;
     MYSQL_RES* res = mysql_store_result(conn->get());
     if (!res) return passes;
@@ -93,26 +99,61 @@ std::vector<MonthlyPass> BillingService::getMonthlyPasses() {
         p.end_date = row[4] ? row[4] : "";
         p.fee = row[5] ? std::stod(row[5]) : 0.0;
         p.is_active = row[6] ? std::stoi(row[6]) == 1 : true;
-        p.user_id = row[7] ? std::stoi(row[7]) : 0;
-        p.plan_id = row[8] ? std::stoi(row[8]) : 0;
+        p.user_id = std::stoi(row[7]);
         passes.push_back(p);
     }
     mysql_free_result(res);
     return passes;
 }
 
+std::vector<MonthlyPass> BillingService::getMonthlyPasses() {
+    std::vector<MonthlyPass> passes;
+    auto conn = this->getConnection();
+    if (!conn) return passes;
+
+    std::string sql = "SELECT id,license_plate,pass_type,start_date,end_date,fee,is_active,user_id "
+        "FROM MONTHLY_PASS WHERE is_active = 1 AND end_date >= NOW()";
+
+    if (mysql_query(conn->get(), sql.c_str()) != 0)
+        return passes;
+    MYSQL_RES* res = mysql_store_result(conn->get());
+    if (!res) return passes;
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        MonthlyPass p;
+        p.id = std::stoi(row[0]);
+        p.license_plate = row[1] ? row[1] : "";
+        p.pass_type = row[2] ? row[2] : "";
+        p.start_date = row[3] ? row[3] : "";
+        p.end_date = row[4] ? row[4] : "";
+        p.fee = row[5] ? std::stod(row[5]) : 0.0;
+        p.is_active = row[6] ? std::stoi(row[6]) == 1 : true;
+        p.user_id = std::stoi(row[7]);
+        passes.push_back(p);
+    }
+    mysql_free_result(res);
+    return passes;
+}
+
+// ===================== 【通用】购买套餐：自动保存传入的 user_id =====================
+// ===================== 【强制每次购买都新增一条记录】 =====================
 bool BillingService::addMonthlyPass(const MonthlyPass& pass) {
     auto conn = getConnection();
     if (!conn) return false;
     MYSQL* mysql = conn->get();
 
-    std::string sql = "INSERT INTO MONTHLY_PASS (license_plate,pass_type,start_date,end_date,fee,is_active,user_id,plan_id) VALUES (" +
+    // 直接插入！不检查、不更新、不合并！
+    std::string sql = "INSERT INTO MONTHLY_PASS ("
+        "license_plate, pass_type, start_date, end_date, fee, is_active, user_id"
+        ") VALUES (" +
         quote(mysql, pass.license_plate) + "," +
         quote(mysql, pass.pass_type) + "," +
         quote(mysql, pass.start_date) + "," +
         quote(mysql, pass.end_date) + "," +
-        std::to_string(pass.fee) + ",1," +
-        std::to_string(pass.user_id) + "," + std::to_string(pass.plan_id) + ")";
+        std::to_string(pass.fee) + ", 1, " +
+        std::to_string(pass.user_id) + ")";
+
     return executeQuery(mysql, sql);
 }
 
@@ -136,7 +177,6 @@ bool BillingService::deleteMonthlyPass(int id) {
     return executeQuery(conn->get(), sql);
 }
 
-// ��ȡ��ǰ��Ч�ļƷѹ��򣨰�is_active=1����ȡ��һ����
 BillingRule BillingService::getActiveRule() {
     BillingRule rule{};
     auto conn = getConnection();
@@ -166,36 +206,29 @@ BillingRule BillingService::getActiveRule() {
     return rule;
 }
 
-// �����볡/�볡ʱ�䣬���������ͣ�����ã������ʱ�����շⶥ��
 double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::string& ruleDesc) {
-    // 1. �����Ϸ���У��
     if (inTime >= outTime) {
-        ruleDesc = "ʱ�������Ч";
+        ruleDesc = "时间无效";
         return 0.0;
     }
 
-    // 2. ��ȡ��ǰ��Ч�ļƷѹ���
     BillingRule rule = getActiveRule();
     if (!rule.is_active) {
-        ruleDesc = "����Ч�Ʒѹ���";
+        ruleDesc = "无有效计费规则";
         return 0.0;
     }
     ruleDesc = rule.rule_name;
 
-    // 3. ����ͣ���ܷ�����
     long long totalMinutes = std::difftime(outTime, inTime) / 60;
 
-    // 4. �۳����ʱ��
     if (totalMinutes <= rule.free_minutes) {
         return 0.0;
     }
     long long chargeMinutes = totalMinutes - rule.free_minutes;
 
-    // 5. ����Сʱ��������ȡ����
     double hours = std::ceil(chargeMinutes / 60.0);
     double fee = hours * rule.hourly_rate;
 
-    // 6. �շⶥ����
     if (fee > rule.max_daily_fee) {
         fee = rule.max_daily_fee;
     }
@@ -203,27 +236,31 @@ double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::s
     return fee;
 }
 
-// ����û��¿��Ƿ�����Ч���ڣ���Ʒѣ�
+// ===================== 【通用】检查套餐：使用传入的 userId =====================
+// ===================== 【检查所有套餐，而不是只查一个】 =====================
 bool BillingService::checkMonthlyPassValid(int userId, const std::string& plate, std::string& passInfo) {
-    auto conn = getConnection();  // �����޸�������
+    auto conn = getConnection();
     if (!conn) return false;
 
-    std::string sql = "SELECT id,pass_type,end_date FROM MONTHLY_PASS "
-        "WHERE user_id=" + std::to_string(userId) +
-        " AND license_plate='" + plate + "' AND is_active=1 AND end_date >= NOW() LIMIT 1";
+    std::string sql = "SELECT pass_type, end_date FROM MONTHLY_PASS "
+        "WHERE user_id = " + std::to_string(userId) +
+        " AND license_plate = '" + plate + "' "
+        "AND is_active = 1 AND end_date >= NOW()";
 
     if (mysql_query(conn->get(), sql.c_str()) != 0) return false;
     MYSQL_RES* res = mysql_store_result(conn->get());
     if (!res) return false;
 
-    MYSQL_ROW row = mysql_fetch_row(res);
-    if (row) {
-        passInfo = "��Ч" + std::string(row[1]) + "�¿�����Ч������" + std::string(row[2]);
-        mysql_free_result(res);
-        return true;
+    bool hasValid = false;
+    passInfo = "";
+    MYSQL_ROW row;
+
+    // 遍历所有有效套餐
+    while ((row = mysql_fetch_row(res))) {
+        hasValid = true;
+        passInfo += std::string(row[0]) + "（至" + std::string(row[1]) + "）";
     }
 
     mysql_free_result(res);
-    passInfo = "����Ч�¿�";
-    return false;
+    return hasValid;
 }

@@ -2,6 +2,8 @@
 #include "crud_service.h"
 #include "../model/user.h"
 
+#include "model/user.h"
+
 class UserService : public CrudService<User> {
 public:
     static UserService& instance();

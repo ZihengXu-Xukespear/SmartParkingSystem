@@ -23,6 +23,8 @@ public:
     // ����û��¿��Ƿ�����Ч���ڣ���Ʒѣ�
     bool checkMonthlyPassValid(int userId, const std::string& plate, std::string& passInfo);
 
+    std::vector<MonthlyPass> getMonthlyPasses(int userId);
+
 private:
     BillingService() = default;
 };

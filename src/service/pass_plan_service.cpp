@@ -1,6 +1,12 @@
 #include "pass_plan_service.h"
 #include "balance_service.h"
 
+#include "database/db_init.h"
+
+#include <vector>
+#include <sstream>
+#include <mysql.h>
+
 PassPlanService& PassPlanService::instance() {
     static PassPlanService inst;
     return inst;
@@ -131,4 +137,49 @@ PassPlan PassPlanService::mapRow(MYSQL_ROW row) {
     p.is_active = row[5] ? std::stoi(row[5]) : 1;
     p.P_name = row[6] ? row[6] : "";
     return p;
+}
+
+std::vector<UserPass> PassPlanService::getUserPurchasedPasses(int user_id) {
+    std::vector<UserPass> passes;
+
+    // 1. 先拿到连接池的 ConnGuard 指针
+    auto conn_guard = getConnection();
+    if (!conn_guard) {
+        return passes;
+    }
+
+    // 2. 取出内部的 MYSQL* 句柄
+    MYSQL* conn = conn_guard->get();
+
+    std::stringstream sql;
+    sql << "SELECT id, user_id, license_plate, pass_type, start_date, end_date, fee, is_active "
+        << "FROM MONTHLY_PASS WHERE user_id = " << user_id;
+
+    // 3. 用取出的 MYSQL* 调用 C API
+    if (mysql_query(conn, sql.str().c_str()) != 0) {
+        return passes;
+    }
+
+    MYSQL_RES* res = mysql_store_result(conn);
+    if (!res) {
+        return passes;
+    }
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        UserPass p;
+        p.id = std::stoi(row[0]);
+        p.user_id = std::stoi(row[1]);
+        p.license_plate = row[2] ? row[2] : "";
+        p.pass_type = row[3] ? row[3] : "";
+        p.start_date = row[4] ? row[4] : "";
+        p.end_date = row[5] ? row[5] : "";
+        p.fee = row[6] ? std::stod(row[6]) : 0.0;
+        p.is_active = row[7] ? (std::stoi(row[7]) != 0) : false;
+        passes.push_back(p);
+    }
+
+    mysql_free_result(res);
+    // 4. 不需要手动关闭连接，ConnGuard 析构时会自动归还
+    return passes;
 }
