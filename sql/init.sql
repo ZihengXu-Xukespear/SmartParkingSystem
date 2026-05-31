@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS CAR_RECORD (
     fee DECIMAL(10,2) DEFAULT NULL,
     location VARCHAR(255) NOT NULL,
     billing_type VARCHAR(20) DEFAULT 'standard',
+    spot_number INT DEFAULT 0 COMMENT '车位号',
+    reservation_id INT DEFAULT 0,
+    exit_deadline DATETIME DEFAULT NULL,
     INDEX idx_plate (license_plate),
     INDEX idx_checkin (check_in_time)
 ) ENGINE=InnoDB;
@@ -46,8 +49,11 @@ CREATE TABLE IF NOT EXISTS RESERVATION (
     id INT PRIMARY KEY AUTO_INCREMENT,
     license_plate VARCHAR(20) NOT NULL,
     P_name VARCHAR(255) NOT NULL,
+    prepaid DECIMAL(10,2) DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'active' COMMENT 'active/completed/cancelled/expired',
+    spot_number INT DEFAULT 0 COMMENT '预约车位号',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE INDEX idx_plate (license_plate)
+    INDEX idx_plate_status (license_plate, status)
 ) ENGINE=InnoDB;
 
 -- 计费规则表

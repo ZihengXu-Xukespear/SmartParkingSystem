@@ -4,7 +4,7 @@ const API_BASE = '';
 
 // HTTP 请求封装
 async function request(url, options = {}) {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     const headers = {
         'Content-Type': 'application/json',
         ...options.headers
@@ -19,9 +19,9 @@ async function request(url, options = {}) {
 
         // Only redirect on 401 if already logged in (token exists) and not a login attempt
         if (resp.status === 401 && token && !url.includes('/api/auth/login')) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('permissions');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('permissions');
             window.location.href = '/index.html';
             return null;
         }
@@ -55,8 +55,8 @@ async function del(url) {
 
 // 检查登录状态
 function checkAuth() {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
+    const user = sessionStorage.getItem('user');
     if (!token || !user) {
         window.location.href = '/index.html';
         return null;
@@ -66,7 +66,7 @@ function checkAuth() {
 
 // 获取用户信息
 function getUser() {
-    const user = localStorage.getItem('user');
+    const user = sessionStorage.getItem('user');
     return user ? JSON.parse(user) : null;
 }
 
@@ -127,7 +127,7 @@ function setActiveNav(id) {
 
 // Permission checking
 function getUserPermissions() {
-    const perms = localStorage.getItem('permissions');
+    const perms = sessionStorage.getItem('permissions');
     return perms ? JSON.parse(perms) : [];
 }
 
@@ -138,9 +138,9 @@ function hasPerm(permission) {
 // 退出登录
 async function logout() {
     await post('/api/auth/logout', {});
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('permissions');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('permissions');
     window.location.href = '/index.html';
 }
 
@@ -155,7 +155,7 @@ function initSidebar() {
 
     if (nameEl) nameEl.textContent = user.truename || user.username;
     if (roleEl) {
-        const roleLabels = { root: '超级管理员', admin: '管理员', operator: '操作员', user: '普通用户' };
+        const roleLabels = { admin: '管理员', root: '管理员', user: '普通用户' };
         roleEl.textContent = roleLabels[user.role] || '普通用户';
     }
     if (avatarEl) avatarEl.textContent = (user.truename || user.username).charAt(0).toUpperCase();
@@ -169,5 +169,29 @@ function initSidebar() {
     if (!hasPerm('vehicle.query')) {
         const vehicleNav = document.getElementById('nav-vehicles');
         if (vehicleNav) vehicleNav.style.display = 'none';
+    }
+    if (!hasPerm('parking.settings')) {
+        const parkingNav = document.getElementById('nav-parking');
+        if (parkingNav) parkingNav.style.display = 'none';
+    }
+    if (!hasPerm('vehicle.checkin')) {
+        const checkinNav = document.getElementById('nav-checkin');
+        if (checkinNav) checkinNav.style.display = 'none';
+    }
+    if (!hasPerm('plate.recognize')) {
+        const recognizeNav = document.getElementById('nav-recognize');
+        if (recognizeNav) recognizeNav.style.display = 'none';
+    }
+    // Adjust chat nav based on role
+    const chatNav = document.getElementById('nav-chat');
+    if (chatNav) {
+        if (!hasPerm('message.send')) {
+            chatNav.style.display = 'none';
+        } else if (user.role === 'admin' || user.role === 'root') {
+            const iconSpan = chatNav.querySelector('.icon');
+            if (iconSpan) iconSpan.textContent = '💬';
+            chatNav.lastChild.textContent = ' 用户反馈';
+            chatNav.href = '/feedback.html';
+        }
     }
 }

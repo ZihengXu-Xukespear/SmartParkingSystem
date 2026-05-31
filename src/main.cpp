@@ -13,6 +13,7 @@
 #include "controller/blacklist_controller.h"
 #include "controller/report_controller.h"
 #include "controller/bulletin_controller.h"
+#include "controller/message_controller.h"
 #include "permissions.h"
 #include "service/auth_service.h"
 
@@ -50,7 +51,6 @@ static std::string mimeType(const std::string& filename) {
 }
 
 void setupStaticFiles(crow::SimpleApp& app) {
-    // Serve static files from frontend/ directory
     CROW_ROUTE(app, "/<string>")
     ([](const crow::request&, std::string filename) {
         std::string path = "frontend/" + filename;
@@ -63,7 +63,6 @@ void setupStaticFiles(crow::SimpleApp& app) {
         return res;
     });
 
-    // Serve files in subdirectories (css/, js/)
     CROW_ROUTE(app, "/<string>/<string>")
     ([](const crow::request&, std::string subdir, std::string filename) {
         std::string path = "frontend/" + subdir + "/" + filename;
@@ -76,9 +75,7 @@ void setupStaticFiles(crow::SimpleApp& app) {
         return res;
     });
 
-    // Root redirects to init or dashboard
-    CROW_ROUTE(app, "/"
-    )([]() {
+    CROW_ROUTE(app, "/")([]() {
         if (!AppConfig::instance().initialized) {
             crow::response res;
             res.redirect("/init.html");
@@ -100,16 +97,15 @@ int main() {
 
     crow::SimpleApp app;
 
-    // Load config
     std::string configPath = findConfigPath();
     bool initialized = false;
 
     if (!configPath.empty()) {
         initialized = AppConfig::instance().load(configPath);
         if (initialized) {
-            // Initialize database pool
             if (MySQLPool::instance().init(AppConfig::instance())) {
                 std::cout << "[OK] 数据库连接成功\n";
+                DBInit::createTables(AppConfig::instance());
             } else {
                 std::cout << "[WARN] 数据库连接失败，请检查配置\n";
                 initialized = false;
@@ -117,7 +113,6 @@ int main() {
         }
     }
 
-    // Init status endpoint - always public (frontend needs to check state)
     CROW_ROUTE(app, "/api/init/status").methods("GET"_method)([]() {
         crow::json::wvalue res;
         res["initialized"] = AppConfig::instance().initialized;
@@ -131,12 +126,10 @@ int main() {
         return r;
     });
 
-    // Init database endpoint - root only if already initialized, public if fresh
     CROW_ROUTE(app, "/api/init/database").methods("POST"_method)([configPath](const crow::request& req) {
-        // If already initialized, require root permission
         if (AppConfig::instance().initialized) {
             if (!BaseController::isRoot(req))
-                return BaseController::errorResponse(403, "系统已初始化，只有 root 可以重新初始化");
+                return BaseController::errorResponse(403, "系统已初始化，只有管理员可以重新初始化");
         }
         auto body = crow::json::load(req.body);
         if (!body) return crow::response(400, "{\"error\":\"Invalid JSON\"}");
@@ -152,25 +145,20 @@ int main() {
         cfg.capacity = body["capacity"].i();
         if (body.has("server_port")) cfg.server_port = body["server_port"].i();
 
-        // Create database
         if (!DBInit::createDatabase(cfg))
             return crow::response(400, "{\"error\":\"创建数据库失败，请检查连接参数\"}");
 
-        // Initialize connection pool
         if (!MySQLPool::instance().init(cfg))
             return crow::response(400, "{\"error\":\"数据库连接池初始化失败\"}");
 
-        // Create tables
         if (!DBInit::createTables(cfg))
             return crow::response(400, "{\"error\":\"创建数据表失败\"}");
 
-        // Save config
         cfg.save(cfg.config_file);
 
         return crow::response(200, "{\"message\":\"数据库初始化成功\"}");
     });
 
-    // Register all API routes via polymorphic controller dispatch
     std::vector<std::unique_ptr<BaseController>> controllers;
     controllers.push_back(std::make_unique<AuthController>());
     controllers.push_back(std::make_unique<VehicleController>());
@@ -183,14 +171,13 @@ int main() {
     controllers.push_back(std::make_unique<BlacklistController>());
     controllers.push_back(std::make_unique<ReportController>());
     controllers.push_back(std::make_unique<BulletinController>());
+    controllers.push_back(std::make_unique<MessageController>());
     for (auto& ctrl : controllers) {
         ctrl->registerRoutes(app);
     }
 
-    // Setup static file serving (must be after API routes to avoid conflicts)
     setupStaticFiles(app);
 
-    // CORS middleware - add to all responses
     app.loglevel(crow::LogLevel::Info);
 
     int port = AppConfig::instance().initialized ? AppConfig::instance().server_port : 8080;

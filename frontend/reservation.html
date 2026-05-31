@@ -5,6 +5,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>预约管理 - Smart Parking</title>
     <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .parking-map-container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .parking-map-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .parking-map-legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .legend-box {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+        }
+        .parking-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .spot {
+            width: 42px; height: 42px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            border: 2px solid transparent;
+            user-select: none;
+        }
+        .spot.available { background:#d4edda; color:#155724; border-color:#28a745; }
+        .spot.available:hover { background:#28a745; color:#fff; transform:scale(1.05); box-shadow:0 2px 8px rgba(40,167,69,0.3); }
+        .spot.occupied { background:#f8d7da; color:#721c24; border-color:#dc3545; cursor:not-allowed; }
+        .spot.reserved { background:#fff3cd; color:#856404; border-color:#ffc107; cursor:not-allowed; }
+        .spot.selected { background:#00aa7f; color:#fff; border-color:#008a66; transform:scale(1.08); box-shadow:0 2px 12px rgba(0,170,127,0.4); }
+        .spot-number { font-size:12px; font-weight:700; }
+        .spot-label { font-size:9px; opacity:0.8; }
+        }
+        .spot-info-bar {
+            margin-top: 12px;
+            padding: 10px 14px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .spot-info-bar .selected-spot {
+            font-weight: 600;
+            color: #00aa7f;
+        }
+
+        /* Road markings */
+        .parking-grid-wrapper {
+            position: relative;
+        }
+        .road-label {
+            text-align: center;
+            font-size: 11px;
+            color: #aaa;
+            margin: 6px 0;
+            letter-spacing: 2px;
+        }
+        /* Ring map spots */
+        .ring-spot {
+            width: 56px; height: 40px; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+            border: 2px solid transparent; position: absolute; user-select: none;
+        }
+        .ring-spot.available { background:#d4edda; color:#155724; border-color:#28a745; }
+        .ring-spot.available:hover { background:#28a745; color:#fff; transform:scale(1.1); }
+        .ring-spot.occupied { background:#f8d7da; color:#721c24; border-color:#dc3545; cursor:not-allowed; }
+        .ring-spot.reserved { background:#fff3cd; color:#856404; border-color:#ffc107; cursor:not-allowed; }
+        .ring-spot.selected { background:#00aa7f; color:#fff; border-color:#008a66; transform:scale(1.1); box-shadow:0 2px 12px rgba(0,170,127,0.4); }
+    </style>
 </head>
 <body>
     <div class="app-container">
@@ -12,10 +113,14 @@
             <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
             <div class="sidebar-nav">
                 <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
+                <a class="nav-item" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
+                <a class="nav-item" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
                 <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
                 <a class="nav-item" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
                 <a class="nav-item active" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
+                <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
                 <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
+<a class="nav-item" id="nav-chat" href="/chat.html"><span class="icon">&#128172;</span> 联系客服</a>
             </div>
             <div class="sidebar-footer">
                 <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
@@ -26,10 +131,36 @@
         <div class="main-content">
             <div class="page-header">
                 <h1>预约管理</h1>
-                <p>预约车位，<span id="expire-hint">30</span>分钟内到达有效</p>
+                <p>选择车位预约，<span id="expire-hint">30</span>分钟内到达有效</p>
             </div>
 
             <div id="alert-box"></div>
+
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <label style="font-size:14px;font-weight:600;">停车场：</label>
+                <select id="lot-selector" class="form-control" style="width:220px;" onchange="onLotChange()"></select>
+            </div>
+
+            <!-- Parking Map -->
+            <div class="parking-map-container" id="lot-map-container">
+                <div class="parking-map-title">
+                    <span id="map-title">停车场车位图</span>
+                    <div class="parking-map-legend">
+                        <div class="legend-item"><div class="legend-box" style="background:#d4edda;border:1px solid #28a745"></div> 可预约</div>
+                        <div class="legend-item"><div class="legend-box" style="background:#fff3cd;border:1px solid #ffc107"></div> 已预约</div>
+                        <div class="legend-item"><div class="legend-box" style="background:#f8d7da;border:1px solid #dc3545"></div> 已占用</div>
+                        <div class="legend-item"><div class="legend-box" style="background:#00aa7f;border:1px solid #008a66"></div> 已选中</div>
+                    </div>
+                </div>
+                <div id="map-render-area">
+                    <div class="road-label">&#9668; 出口 &#9472;&#9472;&#9472;&#9472;&#9472; 行车道 &#9472;&#9472;&#9472;&#9472;&#9472; 入口 &#9658;</div>
+                    <div class="parking-grid-wrapper"><div class="parking-grid" id="parking-grid"></div></div>
+                </div>
+                <div class="spot-info-bar">
+                    <span>总车位: <strong id="map-total">-</strong> | 可预约: <strong id="map-available">-</strong></span>
+                    <span id="selected-spot-info">点击绿色车位选择</span>
+                </div>
+            </div>
 
             <!-- Create Reservation -->
             <div class="card">
@@ -43,50 +174,43 @@
                         <label>停车场</label>
                         <input type="text" id="res-parking" class="form-control" readonly>
                     </div>
+                    <div class="form-group">
+                        <label>选中车位</label>
+                        <input type="text" id="res-spot" class="form-control" readonly placeholder="请在上方地图选择">
+                    </div>
                 </div>
                 <button class="btn btn-primary" onclick="createReservation()">立即预约</button>
             </div>
 
             <!-- Status Card -->
             <div class="stat-cards">
-                <div class="stat-card primary">
-                    <div class="label">总车位</div>
-                    <div class="value" id="stat-total">-</div>
-                </div>
-                <div class="stat-card danger">
-                    <div class="label">已占用</div>
-                    <div class="value" id="stat-occupied">-</div>
-                </div>
-                <div class="stat-card warning">
-                    <div class="label">已预约</div>
-                    <div class="value" id="stat-reserved">-</div>
-                </div>
-                <div class="stat-card success">
-                    <div class="label">可预约</div>
-                    <div class="value" id="stat-available">-</div>
-                </div>
+                <div class="stat-card primary"><div class="label">总车位</div><div class="value" id="stat-total">-</div></div>
+                <div class="stat-card danger"><div class="label">已占用</div><div class="value" id="stat-occupied">-</div></div>
+                <div class="stat-card warning"><div class="label">已预约</div><div class="value" id="stat-reserved">-</div></div>
+                <div class="stat-card success"><div class="label">可预约</div><div class="value" id="stat-available">-</div></div>
             </div>
 
-            <!-- Reservations Table -->
-            <div class="card">
+            <!-- Reservation Tabs -->
+            <div class="tabs" style="margin-top:16px">
+                <div class="tab active" onclick="switchReservationTab('active',event)">当前预约</div>
+                <div class="tab" onclick="switchReservationTab('history',event)">历史记录</div>
+            </div>
+
+            <div class="card" id="tab-active-reservations">
                 <div class="card-title">预约列表</div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>车牌号</th>
-                                <th>停车场</th>
-                                <th>预约时间</th>
-                                <th>剩余有效时间</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reservations-table">
-                            <tr><td colspan="6" class="loading">加载中...</td></tr>
-                        </tbody>
-                    </table>
+                <div class="table-wrapper"><table><thead><tr><th>ID</th><th>车牌号</th><th>停车场</th><th>车位号</th><th>预约时间</th><th>剩余有效时间</th><th>操作</th></tr></thead>
+                <tbody id="reservations-table"><tr><td colspan="7" class="loading">加载中...</td></tr></tbody></table></div>
+            </div>
+
+            <div class="card hidden" id="tab-history-reservations">
+                <div class="card-title">历史记录</div>
+                <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+                    <label style="font-size:13px">开始:</label><input type="date" id="hist-start" class="form-control" style="width:150px">
+                    <label style="font-size:13px">结束:</label><input type="date" id="hist-end" class="form-control" style="width:150px">
+                    <button class="btn btn-primary btn-sm" onclick="loadHistory()">查询</button>
                 </div>
+                <div class="table-wrapper"><table><thead><tr><th>ID</th><th>车牌号</th><th>停车场</th><th>车位号</th><th>状态</th><th>预付</th><th>创建时间</th></tr></thead>
+                <tbody id="history-table"><tr><td colspan="7" class="loading">加载中...</td></tr></tbody></table></div>
             </div>
         </div>
     </div>
@@ -96,103 +220,234 @@
         const user = checkAuth();
         if (user) initSidebar();
 
-        // Load parking status (including expire minutes config)
-        async function loadStatus() {
-            const res = await get('/api/parking/status');
+        let selectedSpot = 0;
+        let totalSpots = 100;
+        let currentLotName = '';
+        let allLots = [];
+
+        // ========== Load Parking Lots ==========
+        async function loadLots() {
+            const res = await get('/api/parking/list');
             if (!res || !res.ok) return;
-            const d = res.data;
-            document.getElementById('stat-total').textContent = d.P_total_count;
-            document.getElementById('stat-occupied').textContent = d.P_current_count;
-            document.getElementById('stat-reserved').textContent = d.P_reserve_count;
-            document.getElementById('stat-available').textContent = d.P_available_count;
-            document.getElementById('res-parking').value = d.P_name;
-            const expireMin = d.notice_expire_minutes || 30;
-            document.getElementById('expire-hint').textContent = expireMin;
-            window._expireMinutes = expireMin;
+            allLots = res.data.lots || [];
+            const sel = document.getElementById('lot-selector');
+            if (!sel || allLots.length === 0) return;
+            sel.innerHTML = allLots.map(l =>
+                `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`
+            ).join('');
+            sel.value = allLots[0].P_name;
+            switchToLot(allLots[0].P_name);
         }
 
-        // Load reservations
+        function onLotChange() {
+            const sel = document.getElementById('lot-selector');
+            if (sel) switchToLot(sel.value);
+        }
+
+        function switchToLot(name) {
+            const lot = allLots.find(l => l.P_name === name);
+            if (!lot) return;
+            currentLotName = lot.P_name;
+            selectedSpot = 0;
+            document.getElementById('res-spot').value = '';
+            document.getElementById('selected-spot-info').textContent = '点击绿色车位选择';
+            document.getElementById('res-parking').value = lot.P_name;
+            document.getElementById('stat-total').textContent = lot.P_total_count;
+            document.getElementById('stat-occupied').textContent = lot.P_current_count;
+            document.getElementById('stat-reserved').textContent = lot.P_reserve_count;
+            document.getElementById('stat-available').textContent = lot.P_total_count - lot.P_current_count - lot.P_reserve_count;
+            loadSpotMap();
+        }
+
+        // ========== Parking Map ==========
+        async function loadSpotMap() {
+            if (!currentLotName) return;
+            const res = await get('/api/reservation/spots?P_name=' + encodeURIComponent(currentLotName));
+            if (!res || !res.ok) return;
+            const spots = res.data.spots || [];
+            totalSpots = spots.length;
+            const isRing = totalSpots <= 30 && totalSpots > 0;
+            if (isRing) renderRingMap(spots); else renderGridMap(spots);
+        }
+
+        function renderGridMap(spots) {
+            const area = document.getElementById('map-render-area');
+            area.innerHTML = `<div class="road-label">&#9668; 出口 &#9472;&#9472;&#9472;&#9472;&#9472; 行车道 &#9472;&#9472;&#9472;&#9472;&#9472; 入口 &#9658;</div>
+                <div class="parking-grid-wrapper"><div class="parking-grid" id="parking-grid"></div></div>`;
+            let availableCount = 0;
+            const grid = document.getElementById('parking-grid');
+            spots.forEach(spot => {
+                const div = document.createElement('div');
+                div.className = 'spot ' + spot.status;
+                div.innerHTML = '<span class="spot-number">' + spot.number + '</span>';
+                if (spot.status === 'available') { div.innerHTML += '<span class="spot-label">空闲</span>'; availableCount++; div.onclick = () => selectSpot(spot.number); }
+                else if (spot.status === 'occupied') { div.innerHTML += '<span class="spot-label">占用</span>'; }
+                else { div.innerHTML += '<span class="spot-label">预约</span>'; }
+                if (selectedSpot === spot.number) { div.className = 'spot selected'; div.innerHTML = '<span class="spot-number">' + spot.number + '</span><span class="spot-label">已选</span>'; }
+                grid.appendChild(div);
+            });
+            document.getElementById('map-total').textContent = spots.length;
+            document.getElementById('map-available').textContent = availableCount;
+        }
+
+        function renderRingMap(spots) {
+            const area = document.getElementById('map-render-area');
+            const size = 420;
+            const cx = size / 2, cy = size / 2, radius = 160;
+            const sw = 56, sh = 40;
+            let availableCount = 0;
+            let html = `<div style="position:relative;width:${size}px;height:${size}px;margin:0 auto;">`;
+            html += `<div style="position:absolute;left:${cx-30}px;top:${cy-12}px;font-size:14px;font-weight:600;color:#999;text-align:center;">停车场</div>`;
+            spots.forEach((spot, i) => {
+                const angle = (2 * Math.PI * i) / spots.length - Math.PI / 2;
+                const x = cx + radius * Math.cos(angle) - sw / 2;
+                const y = cy + radius * Math.sin(angle) - sh / 2;
+                const label = 'A' + spot.number;
+                let cls = 'ring-spot ' + spot.status;
+                let inner = '<span class="spot-number">' + label + '</span>';
+                if (spot.status === 'available') { availableCount++; inner += '<span class="spot-label">空闲</span>'; }
+                else if (spot.status === 'occupied') { inner += '<span class="spot-label">占用</span>'; }
+                else { inner += '<span class="spot-label">预约</span>'; }
+                if (selectedSpot === spot.number) { cls = 'ring-spot selected'; inner = '<span class="spot-number">' + label + '</span><span class="spot-label">已选</span>'; }
+                const click = spot.status === 'available' ? ` onclick="selectRingSpot(${spot.number},'${label}')"` : '';
+                html += `<div class="${cls}" style="left:${x}px;top:${y}px;"${click}>${inner}</div>`;
+            });
+            html += '</div>';
+            area.innerHTML = html;
+            document.getElementById('map-total').textContent = spots.length;
+            document.getElementById('map-available').textContent = availableCount;
+        }
+
+        function selectSpot(number) {
+            selectedSpot = number;
+            document.getElementById('res-spot').value = number + ' 号车位';
+            document.getElementById('selected-spot-info').innerHTML = '已选择: <span class="selected-spot">' + number + ' 号车位</span>';
+            loadSpotMap();
+        }
+
+        function selectRingSpot(number, label) {
+            selectedSpot = number;
+            document.getElementById('res-spot').value = label;
+            document.getElementById('selected-spot-info').innerHTML = '已选择: <span class="selected-spot">' + label + '</span>';
+            loadSpotMap();
+        }
+
+        // ========== Status ==========
+        async function loadStatus() {
+            if (!currentLotName) return;
+            const res = await get('/api/parking/status?P_name=' + encodeURIComponent(currentLotName));
+            if (!res || !res.ok) return;
+            const d = res.data;
+            document.getElementById('expire-hint').textContent = d.notice_expire_minutes || 30;
+            window._expireMinutes = d.notice_expire_minutes || 30;
+        }
+
+        // ========== Reservations ==========
+        let _reservations = [];
+        let _reservationExpireMs = 30 * 60 * 1000;
+
         async function loadReservations() {
             const res = await get('/api/reservation/list');
             const tbody = document.getElementById('reservations-table');
-            if (!res || !res.ok) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">加载失败</td></tr>';
-                return;
-            }
+            if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999">加载失败</td></tr>'; _reservations = []; return; }
             const list = res.data.reservations || [];
-            if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无预约</td></tr>';
-                return;
-            }
+            _reservations = list;
+            _reservationExpireMs = (window._expireMinutes || 30) * 60 * 1000;
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999">暂无预约</td></tr>'; return; }
+            const now = Date.now();
             tbody.innerHTML = list.map(r => {
                 const created = new Date(r.created_at.replace(' ', 'T'));
-                const expireMin = window._expireMinutes || 30;
-                const expire = new Date(created.getTime() + expireMin * 60000);
-                const now = new Date();
-                const remain = Math.max(0, Math.floor((expire - now) / 60000));
-                return `
-                    <tr>
-                        <td>${r.id}</td>
-                        <td><strong>${r.license_plate}</strong></td>
-                        <td>${r.P_name}</td>
-                        <td>${formatDateTime(r.created_at)}</td>
-                        <td><span class="badge ${remain > 0 ? 'badge-success' : 'badge-danger'}">${remain > 0 ? remain + ' 分钟' : '已过期'}</span></td>
-                        <td><button class="btn btn-danger btn-sm" onclick="cancelReservation(${r.id})">取消</button></td>
-                    </tr>
-                `;
+                const expireMs = created.getTime() + _reservationExpireMs;
+                const remain = Math.max(0, expireMs - now);
+                const totalSec = Math.floor(remain / 1000);
+                const mins = Math.floor(totalSec / 60); const secs = totalSec % 60;
+                const badgeClass = remain <= 0 ? 'badge-danger' : remain < 5*60*1000 ? 'reservation-urgent' : 'badge-success';
+                const badgeText = remain <= 0 ? '已过期' : mins + ':' + String(secs).padStart(2, '0');
+                const spotLabel = r.spot_number ? '<span class="badge badge-primary">' + r.spot_number + ' 号</span>' : '-';
+                return `<tr data-expire-ms="${expireMs}"><td>${r.id}</td><td><strong>${r.license_plate}</strong></td><td>${r.P_name}</td><td>${spotLabel}</td><td>${formatDateTime(r.created_at)}</td><td><span class="badge ${badgeClass} countdown-badge">${badgeText}</span></td><td><button class="btn btn-danger btn-sm" onclick="cancelReservation(${r.id})">取消</button></td></tr>`;
             }).join('');
         }
 
-        // Create reservation
+        function updateCountdowns() {
+            const now = Date.now(); let needRefresh = false;
+            document.querySelectorAll('#reservations-table tr[data-expire-ms]').forEach(row => {
+                const expireMs = parseInt(row.dataset.expireMs);
+                const remain = Math.max(0, expireMs - now);
+                const totalSec = Math.floor(remain / 1000);
+                const mins = Math.floor(totalSec / 60); const secs = totalSec % 60;
+                const badge = row.querySelector('.countdown-badge');
+                if (badge) {
+                    if (remain <= 0) { badge.textContent = '已过期'; badge.className = 'badge badge-danger countdown-badge'; needRefresh = true; }
+                    else { badge.textContent = mins + ':' + String(secs).padStart(2, '0'); badge.className = remain < 5*60*1000 ? 'badge reservation-urgent countdown-badge' : 'badge badge-success countdown-badge'; }
+                }
+            });
+            if (needRefresh) { loadReservations(); loadStatus(); loadSpotMap(); }
+        }
+
+        // ========== Create Reservation ==========
         async function createReservation() {
             const plate = document.getElementById('res-plate').value.trim();
             if (!plate) { showError('alert-box', '请输入车牌号'); return; }
-
-            // Validate plate format
+            if (!selectedSpot) { showError('alert-box', '请在车位图上选择一个空闲车位'); return; }
             const vres = await post('/api/plate/validate', { license_plate: plate });
-            if (vres && vres.ok && !vres.data.valid) {
-                showError('alert-box', vres.data.message || '车牌号格式不正确');
-                return;
-            }
-
-            if (!confirm('预约将从余额中预付首小时费用，预约不可退款。\n\n确定预约车牌 ' + plate + ' 吗？')) return;
-
-            const res = await post('/api/reservation/create', { license_plate: plate });
+            if (vres && vres.ok && !vres.data.valid) { showError('alert-box', vres.data.message || '车牌号格式不正确'); return; }
+            if (!confirm('预约将从余额中预付首小时费用，预约不可退款。\n\n确定预约车牌 ' + plate + ' 的车位吗？')) return;
+            const res = await post('/api/reservation/create', { license_plate: plate, spot_number: selectedSpot, P_name: currentLotName });
             if (res && res.ok) {
                 const expireMin = window._expireMinutes || 30;
                 showSuccess('alert-box', '预约成功！请在' + expireMin + '分钟内到达，预付费用不退。');
                 document.getElementById('res-plate').value = '';
-                loadReservations();
-                loadStatus();
-            } else {
-                showError('alert-box', res?.data?.error || '预约失败');
-            }
+                selectedSpot = 0;
+                document.getElementById('res-spot').value = '';
+                document.getElementById('selected-spot-info').textContent = '点击绿色车位选择';
+                loadReservations(); loadStatus(); loadSpotMap();
+            } else { showError('alert-box', res?.data?.error || '预约失败'); }
         }
 
-        // Cancel reservation
         async function cancelReservation(id) {
-            if (!confirm('确定要取消此预约吗？\n\n预付费用将不予退还。')) return;
+            if (!confirm('确定要取消此预约吗？预付费用不予退还。')) return;
             const res = await del('/api/reservation/' + id);
-            if (res && res.ok) {
-                showSuccess('alert-box', '预约已取消（预付不退）');
-                loadReservations();
-                loadStatus();
-            } else {
-                showError('alert-box', res?.data?.error || '取消失败');
+            if (res && res.ok) { showSuccess('alert-box', '预约已取消（预付不退）'); loadReservations(); loadStatus(); loadSpotMap(); }
+            else { showError('alert-box', res?.data?.error || '取消失败'); }
+        }
+
+        function switchReservationTab(tab, ev) {
+            document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+            if (ev && ev.target) ev.target.classList.add('active');
+            document.getElementById('tab-active-reservations').classList.toggle('hidden', tab !== 'active');
+            document.getElementById('tab-history-reservations').classList.toggle('hidden', tab !== 'history');
+            if (tab === 'history') {
+                const today = new Date().toISOString().split('T')[0];
+                const d30 = new Date(Date.now() - 29*86400000).toISOString().split('T')[0];
+                if (!document.getElementById('hist-start').value) document.getElementById('hist-start').value = d30;
+                if (!document.getElementById('hist-end').value) document.getElementById('hist-end').value = today;
+                loadHistory();
             }
         }
 
-        // Enter key
-        document.getElementById('res-plate')?.addEventListener('keydown', e => {
-            if (e.key === 'Enter') createReservation();
-        });
+        async function loadHistory() {
+            const start = document.getElementById('hist-start').value || '';
+            const end = document.getElementById('hist-end').value || '';
+            const params = new URLSearchParams();
+            if (start) params.set('start', start);
+            if (end) params.set('end', end);
+            const res = await get('/api/reservation/history?' + params.toString());
+            const tbody = document.getElementById('history-table');
+            if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="7">加载失败</td></tr>'; return; }
+            const list = res.data.reservations || [];
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:#999">暂无历史记录</td></tr>'; return; }
+            const statusBadge = { 'completed':'badge-success','expired':'badge-warning','cancelled':'badge-danger' };
+            const statusLabel = { 'completed':'已完成','expired':'已过期','cancelled':'已取消' };
+            tbody.innerHTML = list.map(r => '<tr><td>'+r.id+'</td><td><strong>'+r.license_plate+'</strong></td><td>'+r.P_name+'</td><td>'+(r.spot_number?'<span class="badge badge-primary">'+r.spot_number+' 号</span>':'-')+'</td><td><span class="badge '+(statusBadge[r.status]||'badge-default')+'">'+(statusLabel[r.status]||r.status)+'</span></td><td>¥'+parseFloat(r.prepaid).toFixed(2)+'</td><td>'+formatDateTime(r.created_at)+'</td></tr>').join('');
+        }
+
+        document.getElementById('res-plate')?.addEventListener('keydown', e => { if (e.key === 'Enter') createReservation(); });
 
         // Init
-        loadStatus();
+        loadLots();
         loadReservations();
-
-        // Auto refresh
-        setInterval(() => { loadStatus(); loadReservations(); }, 10000);
+        setInterval(() => { if (currentLotName) { loadReservations(); loadSpotMap(); } }, 10000);
+        setInterval(() => { updateCountdowns(); }, 1000);
     </script>
 </body>
 </html>

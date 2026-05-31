@@ -120,7 +120,7 @@ bool AuthService::createDefaultAdmin() {
     if (!conn) return false;
     MYSQL* mysql = conn->get();
 
-    if (mysql_query(mysql, "SELECT COUNT(*) FROM USER WHERE role='root'") == 0) {
+    if (mysql_query(mysql, "SELECT COUNT(*) FROM USER WHERE role='admin'") == 0) {
         MYSQL_RES* res = mysql_store_result(mysql);
         if (res) {
             MYSQL_ROW row = mysql_fetch_row(res);
@@ -134,7 +134,7 @@ bool AuthService::createDefaultAdmin() {
 
     std::string hashed = sha256::hash("admin123");
     std::string sql = "INSERT INTO USER (username,password,telephone,truename,role) VALUES "
-        "('root','" + hashed + "','00000000000','系统管理员','root')";
+        "('admin','" + hashed + "','00000000000','系统管理员','admin')";
     return mysql_query(mysql, sql.c_str()) == 0;
 }
 

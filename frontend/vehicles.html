@@ -12,10 +12,14 @@
             <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
             <div class="sidebar-nav">
                 <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
+                <a class="nav-item" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
+                <a class="nav-item" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
                 <a class="nav-item active" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
                 <a class="nav-item" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
                 <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
+                <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
                 <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
+<a class="nav-item" id="nav-chat" href="/chat.html"><span class="icon">&#128172;</span> 联系客服</a>
             </div>
             <div class="sidebar-footer">
                 <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
@@ -69,12 +73,13 @@
                                 <th>出库时间</th>
                                 <th>费用</th>
                                 <th>停车场</th>
+                                <th>车位</th>
                                 <th>计费方式</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="records-table">
-                            <tr><td colspan="8" class="loading">加载中...</td></tr>
+                            <tr><td colspan="9" class="loading">加载中...</td></tr>
                         </tbody>
                     </table>
                 </div>

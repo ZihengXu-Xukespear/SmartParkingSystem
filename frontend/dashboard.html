@@ -6,6 +6,7 @@
     <title>主面板 - Smart Parking</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -19,6 +20,12 @@
                 <a class="nav-item active" id="nav-dashboard" href="/dashboard.html">
                     <span class="icon">&#9776;</span> 主面板
                 </a>
+                <a class="nav-item" id="nav-parking" href="/parking.html">
+                    <span class="icon">&#127359;</span> 停车场
+                </a>
+                <a class="nav-item" id="nav-checkin" href="/checkin.html">
+                    <span class="icon">&#9971;</span> 车辆入库
+                </a>
                 <a class="nav-item" id="nav-vehicles" href="/vehicles.html">
                     <span class="icon">&#128663;</span> 车辆信息
                 </a>
@@ -28,8 +35,14 @@
                 <a class="nav-item" id="nav-reservation" href="/reservation.html">
                     <span class="icon">&#128197;</span> 预约管理
                 </a>
+                <a class="nav-item" id="nav-recognize" href="/recognize.html">
+                    <span class="icon">&#128247;</span> 车牌识别
+                </a>
                 <a class="nav-item" id="nav-profile" href="/profile.html">
                     <span class="icon">&#128101;</span> 个人中心
+                </a>
+                <a class="nav-item" id="nav-chat" href="/chat.html">
+                    <span class="icon">&#128172;</span> 联系客服
                 </a>
             </div>
             <div class="sidebar-footer">
@@ -76,29 +89,50 @@
                 <!-- Left Column -->
                 <div class="col-2">
 
-                    <!-- Admin/Operator: Vehicle Check-in/Check-out -->
+                    <!-- Quick Vehicle Check-in/Check-out -->
                     <div class="card" id="card-vehicle-ops">
-                        <div class="card-title">车辆入库</div>
+                        <div class="card-title">快捷出入库 <a href="/checkin.html" style="font-size:12px;float:right;">选位入库 &raquo;</a></div>
                         <div id="vehicle-alert"></div>
                         <div class="form-group">
                             <label>车牌号</label>
                             <div class="plate-input-group">
                                 <input type="text" id="plate-input" class="form-control" placeholder="例: 京A12345" maxlength="10">
-                                <button class="btn btn-default btn-sm" onclick="handlePlateRecognize()" id="btn-plate-recognize" title="车牌识别(预留)">识别</button>
+                                <button class="btn btn-default btn-sm" onclick="handlePlateRecognize()" id="btn-plate-recognize" title="车牌识别">识别</button>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>计费方式</label>
-                            <select id="billing-type" class="form-control">
-                                <option value="standard">标准计费</option>
-                                <option value="tiered">阶梯计费</option>
-                                <option value="member">会员计费</option>
-                                <option value="special">特殊车辆(免费)</option>
-                            </select>
-                        </div>
                         <div class="actions mt-2">
-                            <button class="btn btn-primary" onclick="handleCheckIn()" id="btn-checkin">车辆入库</button>
+                            <button class="btn btn-primary" onclick="handleCheckIn()" id="btn-checkin">快速入库</button>
                             <button class="btn btn-danger" onclick="handleCheckOut()" id="btn-checkout">车辆出库</button>
+                        </div>
+                    </div>
+
+                    <!-- Parked Vehicles Card (for admins) -->
+                    <div class="card" id="card-parked-vehicles">
+                        <div class="card-title">在场车辆</div>
+                        <div id="parked-alert"></div>
+                        <div class="form-group" style="margin-bottom:10px">
+                            <div class="plate-input-group">
+                                <input type="text" id="parked-search-input" class="form-control" placeholder="搜索车牌号..." maxlength="10">
+                                <button class="btn btn-primary btn-sm" onclick="loadParkedVehicles()">搜索</button>
+                                <button class="btn btn-default btn-sm" onclick="document.getElementById('parked-search-input').value='';loadParkedVehicles()">重置</button>
+                            </div>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>车牌号</th>
+                                        <th>停车场</th>
+                                        <th>车位</th>
+                                        <th>入库时间</th>
+                                        <th>已停时长</th>
+                                        <th style="width:80px">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="parked-vehicles-list">
+                                    <tr><td colspan="6" class="loading">加载中...</td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
@@ -113,19 +147,6 @@
                     <div class="card" id="card-pass-plans">
                         <div class="card-title">套餐购买</div>
                         <div id="pass-plans-container"><p style="color:#999">加载中...</p></div>
-                    </div>
-
-                    <!-- My Vehicles -->
-                    <div class="card" id="card-my-vehicles">
-                        <div class="card-title">我的车辆</div>
-                        <div id="my-vehicles-alert"></div>
-                        <div id="my-vehicles-container">
-                            <div class="form-row" style="gap:6px;margin-bottom:10px">
-                                <input type="text" id="my-vehicle-input" class="form-control" placeholder="添加车牌号（如京A12345）" maxlength="10" style="flex:1;padding:6px 10px;font-size:13px">
-                                <button class="btn btn-primary btn-sm" onclick="addMyVehicle()">添加</button>
-                            </div>
-                            <div id="my-vehicles-list" style="max-height:200px;overflow-y:auto"><p style="color:#999;font-size:13px">暂无车辆，请添加您的车牌号</p></div>
-                        </div>
                     </div>
 
                     <!-- Recent Vehicle Records -->
@@ -160,35 +181,44 @@
 
                     <!-- Admin: Parking Settings -->
                     <div class="card" id="card-settings">
-                        <div class="card-title">停车场信息</div>
-                        <div class="form-group">
-                            <label>停车场名称</label>
-                            <input type="text" id="parking-name" class="form-control" readonly>
+                        <div class="card-title">停车场管理</div>
+                        <div id="parking-lots-settings"></div>
+                    </div>
+
+                    <!-- Interception Stats (admin only) -->
+                    <div class="card" id="card-interceptions" style="display:none">
+                        <div class="card-title">今日拦截统计</div>
+                        <div style="text-align:center;padding:12px">
+                            <div style="font-size:28px;color:#ff4d4f;font-weight:bold" id="interception-count">0</div>
+                            <div style="font-size:12px;color:#999">24小时内拦截次数</div>
                         </div>
-                        <div class="form-group">
-                            <label>每小时费率 (元)</label>
-                            <input type="number" id="parking-fee" class="form-control" step="0.5">
+                    </div>
+
+                    <!-- Revenue Prediction -->
+                    <div class="card" id="card-prediction" style="display:none">
+                        <div class="card-title">本月收入预测</div>
+                        <div style="text-align:center;padding:12px">
+                            <div style="font-size:12px;color:#999">基于近30天日均收入</div>
+                            <div style="font-size:26px;color:#1890ff;font-weight:bold" id="predicted-total">-</div>
+                            <div style="font-size:12px;color:#666;margin-top:4px">
+                                日均: <span id="predicted-daily-avg">-</span> | 剩余 <span id="predicted-days-remaining">-</span> 天
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>总车位数</label>
-                            <input type="number" id="parking-capacity" class="form-control">
-                        </div>
-                        <button class="btn btn-primary btn-sm" onclick="updateSettings()">保存设置</button>
                     </div>
 
                     <!-- Bulletin Board -->
                     <div class="card" id="card-bulletin">
                         <div class="card-title">公告栏</div>
-                        <div id="bulletin-content" style="font-size:13px;line-height:1.8;white-space:pre-wrap">
+                        <div id="bulletin-content">
                             <p style="color:#999">加载中...</p>
                         </div>
                     </div>
 
-                    <!-- Plate recognition stub (admin/operator) -->
+                    <!-- Plate recognition (admin) -->
                     <div class="card" id="card-plate-recognition">
-                        <div class="card-title">车牌识别 <span class="badge badge-warning">预留</span></div>
-                        <p style="color:#666;font-size:13px;margin-bottom:12px">OpenCV/EasyPR 接口已预留，集成后可自动识别车牌</p>
-                        <div id="plate-result"></div>
+                        <div class="card-title">车牌识别</div>
+                        <p style="color:#666;font-size:13px;margin-bottom:12px">使用摄像头自动识别车牌号并与系统已登记车辆进行比对</p>
+                        <a href="/recognize.html" class="btn btn-primary btn-sm btn-block" style="text-align:center">进入车牌识别</a>
                     </div>
                 </div>
             </div>
@@ -251,5 +281,45 @@
 
     <script src="/js/common.js"></script>
     <script src="/js/dashboard.js"></script>
+
+    <!-- 停车计费 & 离场扣费 -->
+    <script>
+        // 车辆出库自动计算费用 + 扣费
+        async function doCheckoutWithFee(plate) {
+            try {
+                // 1. 直接调用checkout接口（服务端处理计费+扣费）
+                let res = await post('/api/vehicle/checkout', { license_plate: plate });
+                if (res && res.ok) {
+                    let data = res.data || res;
+                    showSuccess('vehicle-alert', plate + ' 出库成功！费用: ¥' + parseFloat(data.fee || 0).toFixed(2) + '，请在10分钟内驶离');
+                    loadRecentRecords();
+                    loadBalance();
+                } else {
+                    showError('vehicle-alert', (res && (res.data?.error || res.error)) || '出库失败');
+                }
+            } catch (e) {
+                console.error(e);
+                showError('vehicle-alert', '操作失败：' + e.message);
+            }
+        }
+    </script>
+
+    <script>
+        // 覆盖车辆出库按钮，自动使用任务D计费逻辑
+        document.addEventListener("DOMContentLoaded", function () {
+            let btnCheckout = document.getElementById("btn-checkout");
+            if (btnCheckout) {
+                btnCheckout.onclick = function () {
+                    let plate = document.getElementById("plate-input").value.trim();
+                    if (!plate) {
+                        showAlert("vehicle-alert", "请输入车牌号", "error");
+                        return;
+                    }
+                    doCheckoutWithFee(plate); // 调用任务D
+                };
+            }
+        });
+    </script>
+
 </body>
 </html>

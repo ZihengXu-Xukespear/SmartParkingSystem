@@ -9,6 +9,7 @@ public:
     std::string P_name;
     double prepaid = 0.0;
     std::string status = "active";  // active/completed/cancelled/expired
+    int spot_number = 0;
     std::string created_at;
 
     int getId() const override { return id; }
@@ -22,6 +23,7 @@ public:
         j["P_name"] = P_name;
         j["prepaid"] = prepaid;
         j["status"] = status;
+        j["spot_number"] = spot_number;
         j["created_at"] = created_at;
         return j;
     }

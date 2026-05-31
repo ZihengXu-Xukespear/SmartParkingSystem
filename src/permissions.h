@@ -28,6 +28,8 @@ constexpr auto BLACKLIST_MANAGE = "vehicle.blacklist";
 constexpr auto REPORT_VIEW     = "report.view";
 constexpr auto EXPORT_DATA     = "vehicle.export";
 constexpr auto NOTICE_MANAGE   = "notice.manage";
+constexpr auto MESSAGE_SEND    = "message.send";
+constexpr auto MESSAGE_MANAGE  = "message.manage";
 
 // All permissions list
 inline const std::vector<const char*> ALL = {
@@ -42,43 +44,24 @@ inline const std::vector<const char*> ALL = {
     PASS_PLAN_MANAGE,
     BLACKLIST_MANAGE,
     REPORT_VIEW, EXPORT_DATA,
-    NOTICE_MANAGE
+    NOTICE_MANAGE,
+    MESSAGE_SEND, MESSAGE_MANAGE
 };
 
 // Role → permissions mapping
 inline std::unordered_set<std::string> getPermissionsForRole(const std::string& role) {
-    if (role == "root") {
+    if (role == "admin" || role == "root") {
         std::unordered_set<std::string> all;
         for (auto p : ALL) all.insert(p);
         return all;
-    }
-    if (role == "admin") {
-        return {
-            USER_VIEW, USER_MANAGE,
-            PARKING_VIEW, PARKING_SETTINGS,
-            BILLING_VIEW, BILLING_MANAGE,
-            VEHICLE_CHECKIN, VEHICLE_CHECKOUT, VEHICLE_QUERY, VEHICLE_DELETE,
-            RESERVATION_CREATE, RESERVATION_VIEW, RESERVATION_CANCEL,
-            PLATE_RECOGNIZE,
-            NOTICE_MANAGE
-        };
-    }
-    if (role == "operator") {
-        return {
-            PARKING_VIEW,
-            BILLING_VIEW,
-            VEHICLE_CHECKIN, VEHICLE_CHECKOUT, VEHICLE_QUERY,
-            RESERVATION_VIEW,
-            PLATE_RECOGNIZE,
-            BALANCE_VIEW
-        };
     }
     // "user" — regular users: view parking, billing, own records, reservations, balance
     return {
         PARKING_VIEW,
         BILLING_VIEW,
         RESERVATION_CREATE, RESERVATION_VIEW, RESERVATION_CANCEL,
-        BALANCE_VIEW
+        BALANCE_VIEW,
+        MESSAGE_SEND
     };
 }
 

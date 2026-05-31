@@ -11,7 +11,7 @@ struct AppConfig {
     std::string database = "smart_parking";
     std::string user = "root";
     std::string password;
-    std::string parking_name = "智慧停车场";
+    std::string parking_name = "停车场1";
     double fee = 5.00;
     int capacity = 100;
     int server_port = 8080;

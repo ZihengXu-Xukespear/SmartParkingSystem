@@ -52,7 +52,7 @@ bool BaseController::isAdmin(const crow::request& req) {
 }
 
 bool BaseController::isRoot(const crow::request& req) {
-    return getRole(req) == "root";
+    return getRole(req) == "admin";
 }
 
 std::string BaseController::getRole(const crow::request& req) {

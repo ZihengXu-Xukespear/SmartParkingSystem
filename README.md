@@ -1,6 +1,6 @@
 # SmartParking — 智慧停车管理系统
 
-基于 C++17 和 Crow 框架的高性能 Web 停车管理应用。支持多用户角色、实时车位监控、多级计费规则、月卡套餐、在线预约、黑名单、财务统计等功能。
+基于 C++17 和 Crow 框架的高性能 Web 停车管理应用。支持多用户角色、实时车位监控、多级计费规则、月卡套餐、在线预约、多停车场管理、在线客服、黑名单、财务统计等功能。
 
 ## 功能特性
 
@@ -8,11 +8,13 @@
 - **车辆出入管理** — 车辆入库/出库登记，黑名单拦截，月卡自动免费通行
 - **实时车位监控** — 仪表盘展示总车位/已占用/已预约/剩余车位的实时状态（ECharts 饼图）
 - **在线预约** — 用户在线预约车位，支持预付首小时费用，超时自动取消
+- **多停车场管理** — 支持多个停车场，预约页面标签切换，含环形车位图（停车场2 20个车位俯视环形布局）
 - **多级计费规则** — 标准计费、阶梯计费、会员计费、特殊车辆免费，自定义费率与每日封顶
 - **月卡套餐系统** — 月卡/季卡/年卡套餐，用户可自行购买，余额自动扣款，到期自动失效
+- **在线客服** — 用户与管理员实时消息沟通，管理员查看分用户会话列表（类微信风格），3秒自动刷新
 
 ### 用户与权限
-- **多角色权限** — 超级管理员、管理员、操作员、普通用户四级角色，细粒度权限控制（20+ 权限节点）
+- **多角色权限** — 管理员（admin/root）、普通用户（user）两种角色，细粒度权限控制（23 个权限节点）
 - **用户管理** — 注册/登录（SHA-256 + Bearer Token），管理员可增删改用户
 - **自助充值** — 用户可在线充值余额（预设金额 ¥50/100/200/500 或自定义）
 - **个人中心** — 查看个人信息、修改密码、余额明细、月卡列表
@@ -27,15 +29,17 @@
 - **车辆管理** — 查看所有车辆的停放记录，支持搜索筛选和出库操作
 - **黑名单管理** — 将违规车辆加入黑名单，禁止入库
 - **收入统计** — 今日/本月/总收入，停车费/套餐销售/预约预付分类统计，近30天收入趋势图
-- **公告编辑** — 编辑显示在主面板的公告内容
+- **公告管理** — 创建/编辑/删除公告，支持置顶和有效期
 
 ### 技术特性
 - **事务保障** — 出入库、预约、套餐购买等关键操作使用数据库事务，避免数据不一致
 - **原子操作** — 余额扣减和车位计数使用条件更新，消除并发竞争条件
 - **连接池** — 自实现 MySQL 连接池，支持并发访问
 - **Token 鉴权** — Bearer Token 认证，24小时过期机制
-- **车牌识别预留** — 预留 OpenCV/EasyPR 接口，集成后可实现自动车牌识别
+- **多标签页独立会话** — 使用 sessionStorage 存储 Token，支持同一浏览器多标签页独立登录不同角色
+- **车牌识别** — 浏览器摄像头拍照 + RapidOCR (Python) 后端识别，返回车牌号、置信度、颜色，并自动查询登记状态（入场/月卡/黑名单），支持一键快速出入库
 - **初始化向导** — 首次运行通过 Web 页面完成数据库配置与表结构创建
+- **OpenCV 可选集成** — 编译时检测 OpenCV，启用后支持图像预处理与车牌定位（CMake ENABLE_OPENCV 宏）
 
 ## 技术栈
 
@@ -72,12 +76,13 @@ SmartParking/
 │   │   ├── parking_controller.h/cpp#   停车场状态、设置、计费规则、月卡
 │   │   ├── user_controller.h/cpp   #   用户 CRUD
 │   │   ├── reservation_controller.h/cpp# 预约创建/取消
-│   │   ├── plate_controller.h/cpp  #   车牌识别（预留）
+│   │   ├── plate_controller.h/cpp  #   车牌识别（摄像头+OCR+登记查询）
 │   │   ├── balance_controller.h/cpp#   余额查询、充值、交易记录
 │   │   ├── pass_plan_controller.h/cpp # 套餐管理、购买
-│   │   ├── blacklist_controller.h/cpp # 黑名单 CRUD
-│   │   ├── report_controller.h/cpp #   收入统计
-│   │   └── bulletin_controller.h/cpp#  公告读取/编辑
+│   │   ├── blacklist_controller.h/cpp # 黑名单 CRUD + 拦截记录
+│   │   ├── report_controller.h/cpp #   收入统计+导出+预测
+│   │   ├── bulletin_controller.h/cpp#  公告 CRUD（创建/编辑/删除/置顶）
+│   │   └── message_controller.h/cpp #  在线客服消息
 │   ├── service/                    # 服务层（业务逻辑）
 │   │   ├── base_service.h/cpp      #   基类：连接池、SQL 转义辅助
 │   │   ├── crud_service.h          #   通用 CRUD 模板（header-only 模板）
@@ -87,11 +92,13 @@ SmartParking/
 │   │   ├── billing_service.h/cpp   #   计费规则、月卡 CRUD
 │   │   ├── user_service.h/cpp      #   用户 CRUD
 │   │   ├── reservation_service.h/cpp#  预约业务
-│   │   ├── plate_service.h/cpp     #   车牌验证
+│   │   ├── plate_service.h/cpp     #   车牌验证、识别、登记查询
 │   │   ├── balance_service.h/cpp   #   余额原子操作
 │   │   ├── pass_plan_service.h/cpp #   套餐购买
 │   │   ├── blacklist_service.h/cpp #   黑名单
-│   │   └── report_service.h/cpp    #   财务统计
+│   │   ├── report_service.h/cpp    #   财务统计
+│   │   └── bulletin_service.h      #   公告服务（header-only）
+│   │   └── message_service.h/cpp   #   在线客服消息
 │   ├── model/                      # 数据模型（header-only，简单小巧）
 │   │   ├── base_model.h            #   抽象基类
 │   │   ├── user.h                  #   用户模型
@@ -100,7 +107,12 @@ SmartParking/
 │   │   ├── reservation.h           #   预约
 │   │   ├── billing.h               #   计费规则、月卡、套餐
 │   │   ├── balance_record.h        #   余额变动记录
-│   │   └── blacklist.h             #   黑名单
+│   │   ├── blacklist.h             #   黑名单
+│   │   ├── bulletin.h              #   公告模型
+│   │   ├── interception_log.h      #   黑名单拦截记录
+│   │   └── message.h               #   消息模型
+│   ├── plate_recognizer.h/cpp     #   车牌识别引擎（图像预处理+定位+OCR）
+│   ├── ocr_bridge.py              #   Python OCR 桥接（RapidOCR）
 │   └── database/
 │       ├── mysql_pool.h/cpp        # 连接池
 │       └── db_init.h/cpp           # 自动建库建表
@@ -111,8 +123,10 @@ SmartParking/
 │   ├── dashboard.html              # 主面板（车位状态 + 出入库 + 图表 + 我的车辆 + 充值）
 │   ├── vehicles.html               # 车辆记录查询
 │   ├── reservation.html            # 预约管理
-│   ├── admin.html                  # 管理页面
+│   ├── admin.html                  # 管理页面（含用户反馈标签页）
 │   ├── profile.html                # 个人中心
+│   ├── chat.html                   # 联系客服（用户端在线客服）
+│   ├── recognize.html              # 车牌识别（摄像头拍照+OCR+快速出入库）
 │   ├── css/style.css               # 统一样式
 │   └── js/                         # 前端逻辑
 │       ├── common.js               # 公共函数（HTTP 请求、权限检查、格式化）
@@ -121,6 +135,7 @@ SmartParking/
 │       ├── dashboard.js            # 主面板（状态、出入库、套餐、充值、我的车辆）
 │       ├── admin.js                # 管理页面（用户、计费、月卡、黑名单、统计）
 │       ├── vehicles.js             # 车辆查询
+│       ├── recognize.js            # 车牌识别（摄像头、OCR、快速出入库）
 │       └── profile.js              # 个人中心
 └── third_party/                    # 第三方库（header-only）
     └── crow.h, crow/               # Crow Web 框架
@@ -324,13 +339,13 @@ smart_parking.exe
    - **数据库名**: `smart_parking`
    - **用户名**: `root`
    - **密码**: 你的 MySQL root 密码
-   - **停车场名称**: 如 `智慧停车场`
+   - **停车场名称**: 如 `停车场1`
    - **每小时费率**: 如 `5.00`
    - **总车位数**: 如 `100`
    - **服务端口**: `8080`
 3. 点击 **"初始化数据库"**
 4. 等待页面显示"初始化成功"，然后点击"进入系统"
-5. 使用默认管理员账号登录：**用户名** `root`，**密码** `admin123`
+5. 使用默认管理员账号登录：**用户名** `admin`，**密码** `admin123`
 
 ## 快速开始（Linux）
 
@@ -367,39 +382,41 @@ cd build/Release
 
 | 用户名 | 密码 | 角色 | 说明 |
 |--------|------|------|------|
-| `root` | `admin123` | **超级管理员** | 全部权限，包括系统初始化 |
-| — | — | **管理员** | 用户管理、计费、月卡、黑名单、公告、报表 |
-| — | — | **操作员** | 车辆出入库、查询记录、车牌识别、查看余额 |
-| — | — | **普通用户** | 查看车位、预约、余额、购买套餐 |
+| `admin` | `admin123` | **管理员** | 全部权限，包括系统初始化 |
+| — | — | **普通用户** | 查看车位、预约、余额、联系客服、购买套餐 |
 
 管理员可在 **管理页面 → 用户管理** 中添加不同角色的用户。
 
 ### 权限节点
 
-| 权限 | 说明 | root | admin | operator | user |
-|------|------|:----:|:-----:|:--------:|:----:|
-| `system.init` | 系统初始化 | ✓ | | | |
-| `user.view` | 查看用户列表 | ✓ | ✓ | | |
-| `user.manage` | 增删改用户 | ✓ | ✓ | | |
-| `parking.view` | 查看停车场状态 | ✓ | ✓ | ✓ | ✓ |
-| `parking.settings` | 修改停车场设置 | ✓ | ✓ | | |
-| `billing.view` | 查看计费规则 | ✓ | ✓ | ✓ | ✓ |
-| `billing.manage` | 编辑计费规则 | ✓ | ✓ | | |
-| `vehicle.checkin` | 车辆入库 | ✓ | ✓ | ✓ | |
-| `vehicle.checkout` | 车辆出库 | ✓ | ✓ | ✓ | |
-| `vehicle.query` | 查询停车记录 | ✓ | ✓ | ✓ | |
-| `vehicle.delete` | 删除记录 | ✓ | ✓ | | |
-| `reservation.create` | 创建预约 | ✓ | ✓ | | ✓ |
-| `reservation.view` | 查看预约 | ✓ | ✓ | ✓ | ✓ |
-| `reservation.cancel` | 取消预约 | ✓ | ✓ | | ✓ |
-| `plate.recognize` | 车牌识别 | ✓ | ✓ | ✓ | |
-| `balance.view` | 查看余额 | ✓ | | ✓ | ✓ |
-| `balance.manage` | 余额充值管理 | ✓ | | | |
-| `passplan.manage` | 套餐管理 | ✓ | ✓ | | |
-| `vehicle.blacklist` | 黑名单管理 | ✓ | ✓ | | |
-| `report.view` | 查看统计报表 | ✓ | ✓ | | |
-| `vehicle.export` | 导出数据 | ✓ | ✓ | | |
-| `notice.manage` | 编辑公告 | ✓ | ✓ | | |
+共 23 个权限节点。管理员（admin/root）拥有全部权限，普通用户（user）拥有以下 7 个权限：`parking.view`、`billing.view`、`reservation.create`、`reservation.view`、`reservation.cancel`、`balance.view`、`message.send`。
+
+| 权限 | 说明 | admin/root | user |
+|------|------|:----------:|:----:|
+| `system.init` | 系统初始化 | ✓ | |
+| `user.view` | 查看用户列表 | ✓ | |
+| `user.manage` | 增删改用户 | ✓ | |
+| `parking.view` | 查看停车场状态 | ✓ | ✓ |
+| `parking.settings` | 修改停车场设置 | ✓ | |
+| `billing.view` | 查看计费规则 | ✓ | ✓ |
+| `billing.manage` | 编辑计费规则 | ✓ | |
+| `vehicle.checkin` | 车辆入库 | ✓ | |
+| `vehicle.checkout` | 车辆出库 | ✓ | |
+| `vehicle.query` | 查询停车记录 | ✓ | |
+| `vehicle.delete` | 删除记录 | ✓ | |
+| `vehicle.export` | 导出数据 | ✓ | |
+| `reservation.create` | 创建预约 | ✓ | ✓ |
+| `reservation.view` | 查看预约 | ✓ | ✓ |
+| `reservation.cancel` | 取消预约 | ✓ | ✓ |
+| `plate.recognize` | 车牌识别 | ✓ | |
+| `balance.view` | 查看余额 | ✓ | ✓ |
+| `balance.manage` | 余额充值管理 | ✓ | |
+| `passplan.manage` | 套餐管理 | ✓ | |
+| `vehicle.blacklist` | 黑名单管理 | ✓ | |
+| `report.view` | 查看统计报表 | ✓ | |
+| `notice.manage` | 编辑公告 | ✓ | |
+| `message.send` | 发送/查看消息 | ✓ | ✓ |
+| `message.manage` | 管理用户反馈 | ✓ | |
 
 ## 用户端功能
 
@@ -412,6 +429,7 @@ cd build/Release
 - **余额与交易记录** — 查看余额和最近交易明细
 - **最近记录** — 查看最近车辆出入记录
 - **公告栏** — 查看系统公告
+- **联系客服** — 在线与管理员沟通
 
 ### 车辆信息查询
 - 按车牌号、日期范围搜索停车记录
@@ -419,14 +437,29 @@ cd build/Release
 
 ### 预约管理
 - 在线预约车位，预付首小时费用
+- **多停车场标签切换** — 预约页面顶部标签切换不同停车场（停车场1 标准网格布局 / 停车场2 环形布局）
 - 查看预约列表及剩余有效时间
 - 取消预约（预付不退）
+
+### 联系客服
+- 与管理员实时在线沟通（类微信聊天界面）
+- 自动 3 秒轮询新消息
+- 消息按日期分组，区分发送/接收方向
+- 支持 Enter 键快速发送
 
 ### 个人中心
 - 查看和修改个人信息（手机号、真实姓名）
 - 修改密码
 - 余额明细
 - 月卡列表
+
+### 车牌识别
+- **摄像头拍照识别** — 开启设备摄像头，实时预览，一键拍照上传
+- **OCR 车牌识别** — 后端 RapidOCR 识别车牌号、置信度、车牌颜色
+- **登记状态查询** — 识别后自动查询车辆是否已登记、是否在场内、是否有月卡、是否在黑名单
+- **快速出入库** — 识别成功后一键完成入库或出库操作
+- **手动查询** — 手动输入车牌号查询登记信息
+- **识别历史** — 本地保存最近 20 条识别记录
 
 ### 管理页面
 - **用户管理** — 添加/编辑/删除用户，分配角色
@@ -437,7 +470,8 @@ cd build/Release
 - **月卡管理** — 查看/添加/编辑/停用月卡
 - **黑名单** — 添加/移除黑名单车辆
 - **收入统计** — 今日/本月/总收入趋势图
-- **公告编辑** — 编辑系统公告
+- **公告管理** — 创建/编辑/删除公告，支持置顶和有效期设置
+- **用户反馈** — 查看所有用户会话列表（按最新消息排序），选择会话查看用户基本信息（姓名/手机/角色/余额/注册时间）和完整聊天记录，实时回复用户（3秒自动刷新，未读消息计数）
 
 ## 构建选项
 
@@ -503,12 +537,12 @@ cmake --preset conan-default \
     "database": "smart_parking",
     "user": "root",
     "password": "your_password",
-    "parking_name": "智慧停车场",
+    "parking_name": "停车场1",
     "fee": 5.00,
     "capacity": 100,
     "server_port": 8080,
     "notice_expire_minutes": 30,
-    "notice": "欢迎使用智慧停车场管理系统！\n请遵守停车场管理规定，文明停车。"
+    "notice": "欢迎使用停车场管理系统！\n请遵守停车场管理规定，文明停车。"
 }
 ```
 
@@ -532,6 +566,7 @@ cmake --preset conan-default \
 | POST | `/api/vehicle/checkin` | `vehicle.checkin` | 车辆入库 |
 | POST | `/api/vehicle/checkout` | `vehicle.checkout` | 车辆出库（计费+扣款） |
 | GET | `/api/vehicle/query` | `vehicle.query` | 查询停车记录 |
+| GET | `/api/vehicle/parked` | `vehicle.query` | 当前在场车辆列表 |
 | GET | `/api/vehicle/status` | 认证 | 所有车辆停放状态 |
 | DELETE | `/api/vehicle/<id>` | `vehicle.delete` | 删除记录 |
 | GET | `/api/vehicle/export` | `vehicle.export` | 导出 CSV |
@@ -563,6 +598,8 @@ cmake --preset conan-default \
 |------|------|------|------|
 | POST | `/api/reservation/create` | `reservation.create` | 创建预约 |
 | GET | `/api/reservation/list` | `reservation.view` | 预约列表 |
+| GET | `/api/reservation/history` | `reservation.view` | 预约历史 |
+| GET | `/api/reservation/spots` | `parking.view` | 车位状态（?P_name=停车场名） |
 | DELETE | `/api/reservation/<id>` | `reservation.cancel` | 取消预约 |
 
 ### 余额 `/api/balance`
@@ -570,9 +607,12 @@ cmake --preset conan-default \
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
 | GET | `/api/balance` | `balance.view` | 我的余额和交易记录 |
+| GET | `/api/balance/my` | 认证 | 当前用户余额信息 |
 | GET | `/api/balance/<id>` | `balance.manage` | 指定用户余额 |
 | POST | `/api/balance/recharge` | `balance.manage` | 管理员充值 |
 | POST | `/api/balance/deposit` | 认证 | 自助充值（1~10000元） |
+| POST | `/api/balance/calculate-fee` | `balance.manage` | 预估停车费用 |
+| POST | `/api/balance/parking-deduct` | 认证 | 停车费扣款 |
 | GET | `/api/balance/transactions` | `balance.manage` | 全部交易记录 |
 
 ### 套餐 `/api/pass-plans`
@@ -585,21 +625,60 @@ cmake --preset conan-default \
 | DELETE | `/api/pass-plans/<id>` | `passplan.manage` | 删除套餐 |
 | POST | `/api/pass-plans/<id>/purchase` | 认证 | 购买套餐（余额扣款） |
 
-### 其他
+### 消息 `/api/message`
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/message/send` | `message.send` | 发送消息（receiver_id=0 为发给管理员） |
+| GET | `/api/message/conversations` | `message.manage` | 管理员获取会话列表（含用户信息+未读数） |
+| GET | `/api/message/history` | `message.send` | 获取与指定用户的聊天记录（?user_id=X） |
+| POST | `/api/message/mark-read` | `message.send` | 标记消息为已读 |
+| GET | `/api/message/unread-count` | `message.send` | 获取当前用户未读消息数 |
+
+### 车牌识别 `/api/plate`
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| POST | `/api/plate/recognize` | `plate.recognize` | 车牌识别（文本） |
+| POST | `/api/plate/recognize-image` | `plate.recognize` | 摄像头拍照识别（base64 图片）+ 登记状态查询 |
+| POST | `/api/plate/check-registered` | 认证 | 手动查询车牌登记状态 |
+| POST | `/api/plate/validate` | 认证 | 车牌格式校验 |
+
+### 黑名单 `/api/blacklist`
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/blacklist` | `vehicle.blacklist` | 黑名单列表 |
+| POST | `/api/blacklist` | `vehicle.blacklist` | 添加黑名单 |
+| DELETE | `/api/blacklist/<id>` | `vehicle.blacklist` | 移除黑名单 |
+| GET | `/api/blacklist/interceptions` | `vehicle.blacklist` | 拦截记录列表 |
+| GET | `/api/blacklist/interceptions/count` | `vehicle.blacklist` | 拦截次数统计 |
+
+### 报表 `/api/report`
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/report/summary` | `report.view` | 收入汇总 |
+| GET | `/api/report/daily` | `report.view` | 近30天收入趋势 |
+| GET | `/api/report/export` | `report.view` | 导出收入报表 CSV |
+| GET | `/api/report/prediction` | `report.view` | 收入预测数据 |
+
+### 公告 `/api/bulletin`
+
+| 方法 | 路径 | 权限 | 说明 |
+|------|------|------|------|
+| GET | `/api/bulletin` | 认证 | 获取当前有效公告 |
+| GET | `/api/bulletin/all` | `notice.manage` | 所有公告列表 |
+| POST | `/api/bulletin` | `notice.manage` | 创建公告 |
+| PUT | `/api/bulletin/<id>` | `notice.manage` | 更新公告 |
+| DELETE | `/api/bulletin/<id>` | `notice.manage` | 删除公告 |
+
+### 系统 `/api/init`
 
 | 方法 | 路径 | 权限 | 说明 |
 |------|------|------|------|
 | GET | `/api/init/status` | 公开 | 系统初始化状态 |
 | POST | `/api/init/database` | 公开/root | 初始化数据库 |
-| POST | `/api/plate/recognize` | `plate.recognize` | 车牌识别（预留） |
-| POST | `/api/plate/validate` | 认证 | 车牌格式校验 |
-| GET | `/api/blacklist` | `vehicle.blacklist` | 黑名单列表 |
-| POST | `/api/blacklist` | `vehicle.blacklist` | 添加黑名单 |
-| DELETE | `/api/blacklist/<id>` | `vehicle.blacklist` | 移除黑名单 |
-| GET | `/api/report/summary` | `report.view` | 收入汇总 |
-| GET | `/api/report/daily` | `report.view` | 近30天收入趋势 |
-| GET | `/api/bulletin` | 认证 | 读取公告 |
-| PUT | `/api/bulletin` | `notice.manage` | 编辑公告 |
 
 ## 数据库表
 
@@ -614,11 +693,14 @@ cmake --preset conan-default \
 | `PASS_PLAN` | 套餐定义（plan_name/duration_days/price/is_active） |
 | `BALANCE_RECORD` | 余额变动记录（user_id/amount/type/description/balance_after） |
 | `VEHICLE_BLACKLIST` | 黑名单（license_plate/reason） |
+| `INTERCEPTION_LOG` | 黑名单拦截记录（license_plate/reason/intercepted_at） |
+| `BULLETIN` | 公告（content/is_pinned/valid_from/valid_until/created_at） |
+| `MESSAGE` | 在线客服消息（sender_id/receiver_id/content/created_at/is_read） |
 
 ## 待扩展功能
 
-- [ ] 集成 OpenCV + EasyPR 实现真实车牌识别
-- [ ] 多停车场支持（目前已在数据层面预留）
+- [x] 车牌识别（浏览器摄像头 + RapidOCR Python 桥接 + 登记状态查询 + 快速出入库）
+- [x] 多停车场支持（预约页面标签切换，含环形车位图）
 - [ ] 支付接口对接（微信/支付宝）
 - [ ] Docker 容器化部署
 - [ ] 单元测试与集成测试

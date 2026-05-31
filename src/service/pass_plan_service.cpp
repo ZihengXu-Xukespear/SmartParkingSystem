@@ -6,21 +6,28 @@ PassPlanService& PassPlanService::instance() {
     return inst;
 }
 
-std::vector<PassPlan> PassPlanService::getActivePlans() {
-    return list("SELECT id,plan_name,duration_days,price,description,is_active FROM PASS_PLAN WHERE is_active=1 ORDER BY duration_days");
+std::vector<PassPlan> PassPlanService::getActivePlans(const std::string& P_name) {
+    std::string sql = "SELECT id,plan_name,duration_days,price,description,is_active,COALESCE(P_name,'') FROM PASS_PLAN WHERE is_active=1";
+    if (!P_name.empty()) {
+        auto conn = getConnection();
+        if (conn) sql += " AND P_name=" + quote(conn->get(), P_name);
+    }
+    sql += " ORDER BY duration_days";
+    return list(sql);
 }
 
 std::vector<PassPlan> PassPlanService::getAllPlans() {
-    return list("SELECT id,plan_name,duration_days,price,description,is_active FROM PASS_PLAN ORDER BY duration_days");
+    return list("SELECT id,plan_name,duration_days,price,description,is_active,COALESCE(P_name,'') FROM PASS_PLAN ORDER BY duration_days");
 }
 
 bool PassPlanService::addPlan(const PassPlan& plan) {
     auto conn = getConnection();
     if (!conn) return false;
     MYSQL* mysql = conn->get();
-    std::string sql = "INSERT INTO PASS_PLAN (plan_name,duration_days,price,description,is_active) VALUES (" +
+    std::string sql = "INSERT INTO PASS_PLAN (plan_name,duration_days,price,description,is_active,P_name) VALUES (" +
         quote(mysql, plan.plan_name) + "," + std::to_string(plan.duration_days) + "," +
-        std::to_string(plan.price) + "," + quote(mysql, plan.description) + ",1)";
+        std::to_string(plan.price) + "," + quote(mysql, plan.description) + ",1," +
+        quote(mysql, plan.P_name) + ")";
     return executeQuery(mysql, sql);
 }
 
@@ -33,6 +40,7 @@ bool PassPlanService::updatePlan(int id, const PassPlan& plan) {
         ", price=" + std::to_string(plan.price) +
         ", description=" + quote(mysql, plan.description) +
         ", is_active=" + std::to_string(plan.is_active ? 1 : 0) +
+        ", P_name=" + quote(mysql, plan.P_name) +
         " WHERE id=" + std::to_string(id);
     return executeQuery(mysql, sql);
 }
@@ -121,5 +129,6 @@ PassPlan PassPlanService::mapRow(MYSQL_ROW row) {
     p.price = row[3] ? std::stod(row[3]) : 0;
     p.description = row[4] ? row[4] : "";
     p.is_active = row[5] ? std::stoi(row[5]) : 1;
+    p.P_name = row[6] ? row[6] : "";
     return p;
 }

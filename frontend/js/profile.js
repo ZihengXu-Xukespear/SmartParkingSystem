@@ -5,7 +5,7 @@ function loadProfile() {
     document.getElementById('prof-username').value = user.username || '';
     document.getElementById('prof-phone').value = user.telephone || '';
     document.getElementById('prof-truename').value = user.truename || '';
-    document.getElementById('prof-role').value = (user.role === 'root' ? '超级管理员' : user.role === 'admin' ? '管理员' : user.role === 'operator' ? '操作员' : '普通用户');
+    document.getElementById('prof-role').value = (user.role === 'admin' || user.role === 'root' ? '管理员' : '普通用户');
 }
 
 async function updateProfile() {
@@ -20,7 +20,7 @@ async function updateProfile() {
         // Update stored user
         user.telephone = phone;
         user.truename = truename;
-        localStorage.setItem('user', JSON.stringify(user));
+        sessionStorage.setItem('user', JSON.stringify(user));
         initSidebar();
         showSuccess('alert-box', '个人信息已更新');
     } else {

@@ -5,7 +5,7 @@
 class PassPlanService : public CrudService<PassPlan> {
 public:
     static PassPlanService& instance();
-    std::vector<PassPlan> getActivePlans();
+    std::vector<PassPlan> getActivePlans(const std::string& P_name = "");
     std::vector<PassPlan> getAllPlans();
     bool addPlan(const PassPlan& plan);
     bool updatePlan(int id, const PassPlan& plan);

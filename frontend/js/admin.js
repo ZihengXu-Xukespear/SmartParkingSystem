@@ -2,8 +2,15 @@
 const user = checkAuth();
 if (user) { initSidebar(); if (!hasPerm('user.view')) { document.querySelector('.main-content').innerHTML = '<div class="card" style="text-align:center;padding:60px"><h2>权限不足</h2></div>'; } }
 
-function roleLabel(r) { const m={root:'超级管理员',admin:'管理员',operator:'操作员',user:'普通用户'}; return m[r]||'用户'; }
-function roleBadge(r) { const m={root:'badge-danger',admin:'badge-warning',operator:'badge-primary',user:'badge-default'}; return m[r]||'badge-default'; }
+// Handle URL tab parameter (e.g., ?tab=feedback)
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab) switchTab(tab);
+})();
+
+function roleLabel(r) { const m={admin:'管理员',root:'管理员',user:'普通用户'}; return m[r]||'用户'; }
+function roleBadge(r) { const m={admin:'badge-warning',root:'badge-warning',user:'badge-default'}; return m[r]||'badge-default'; }
 
 function switchTab(tab, ev) {
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -11,10 +18,38 @@ function switchTab(tab, ev) {
     if(ev&&ev.target) ev.target.classList.add('active');
     document.getElementById('tab-'+tab).classList.remove('hidden');
     if(tab==='users') loadUsers(); else if(tab==='recharge') loadUsersForRecharge();
-    else if(tab==='billing') loadBillingRules(); else if(tab==='passes') loadPasses();
-    else if(tab==='plans') loadPlans(); else if(tab==='vehicles') loadVehicles('all');
-    else if(tab==='blacklist') loadBlacklist(); else if(tab==='reports') loadReports();
-    else if(tab==='notice') loadNotice();
+    else if(tab==='billing') { loadBillingLotSelector(); loadBillingRules(); }
+    else if(tab==='plans') { loadPlansLotSelector(); loadPlans(); loadPasses(); }
+    else if(tab==='vehicles') loadVehicles('all');
+    else if(tab==='blacklist') { loadBlacklist(); loadInterceptions(); }
+    else if(tab==='reports') { loadReports();
+        const today = new Date().toISOString().split('T')[0];
+        const d30 = new Date(Date.now() - 29*86400000).toISOString().split('T')[0];
+        if (!document.getElementById('export-start').value) document.getElementById('export-start').value = d30;
+        if (!document.getElementById('export-end').value) document.getElementById('export-end').value = today;
+    }
+    else if(tab==='notice') loadBulletins();
+    else if(tab==='messages') { loadConversations(); if(_selectedMsgUserId>0)selectConversation(_selectedMsgUserId); }
+    else if(tab==='settings') { /* static content, no loading needed */ }
+}
+
+async function loadBillingLotSelector() {
+    const sel = document.getElementById('billing-lot-select');
+    if (!sel || sel.options.length > 0) return;
+    const res = await get('/api/parking/list');
+    if (res && res.ok && res.data.lots) {
+        sel.innerHTML = '<option value="">全部</option>' + res.data.lots.map(l =>
+            `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`).join('');
+    }
+}
+async function loadPlansLotSelector() {
+    const sel = document.getElementById('plans-lot-select');
+    if (!sel || sel.options.length > 0) return;
+    const res = await get('/api/parking/list');
+    if (res && res.ok && res.data.lots) {
+        sel.innerHTML = '<option value="">全部</option>' + res.data.lots.map(l =>
+            `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`).join('');
+    }
 }
 
 // ========== Users ==========
@@ -30,7 +65,7 @@ async function loadUsers() {
         <td><span class="badge ${roleBadge(u.role)}">${roleLabel(u.role)}</span></td>
         <td>¥${parseFloat(u.balance||0).toFixed(2)}</td><td>${formatDateTime(u.created_at)}</td>
         <td><button class="btn btn-default btn-sm btn-edit-user">编辑</button>
-        ${u.role==='root'?'<span style="color:#999;font-size:12px">受保护</span>':'<button class="btn btn-danger btn-sm btn-delete-user">删除</button>'}</td></tr>`).join('');
+        ${(u.role==='admin'||u.role==='root')?'<span style="color:#999;font-size:12px">受保护</span>':'<button class="btn btn-danger btn-sm btn-delete-user">删除</button>'}</td></tr>`).join('');
 }
 function editUser(row) {
     const id = parseInt(row.dataset.uid);
@@ -78,50 +113,95 @@ async function doRecharge() {
 async function loadPlans() {
     const res=await get('/api/pass-plans'); const tbody=document.getElementById('plans-table');
     if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="6">加载失败</td></tr>';return;}
-    const plans=res.data.plans||[];
+    let plans=res.data.plans||[];
+    const lotSel=document.getElementById('plans-lot-select');
+    if(lotSel&&lotSel.value) plans=plans.filter(p=>p.P_name===lotSel.value);
     tbody.innerHTML=plans.map(p=>`<tr data-plan-id="${p.id}">
         <td>${escapeHtml(p.plan_name)}</td><td>${p.duration_days}天</td><td>¥${parseFloat(p.price).toFixed(2)}</td>
-        <td>${escapeHtml(p.description||'-')}</td><td>${p.is_active?'<span class="badge badge-success">启用</span>':'<span class="badge badge-danger">禁用</span>'}</td>
+        <td>${escapeHtml(p.P_name||'-')}</td><td>${p.is_active?'<span class="badge badge-success">启用</span>':'<span class="badge badge-danger">禁用</span>'}</td>
         <td><button class="btn btn-default btn-sm btn-edit-plan">编辑</button><button class="btn btn-danger btn-sm btn-delete-plan">删除</button></td></tr>`).join('');
+}
+async function populateLotSelect(selId, selected) {
+    const sel = document.getElementById(selId);
+    if (!sel || sel.options.length > 0) { if (selected && sel) sel.value = selected; return; }
+    const res = await get('/api/parking/list');
+    if (res && res.ok && res.data.lots) {
+        sel.innerHTML = res.data.lots.map(l =>
+            `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`).join('');
+    }
+    if (selected) sel.value = selected;
 }
 async function savePlan() {
     const id=document.getElementById('edit-plan-id').value;
-    const body={plan_name:document.getElementById('plan-name').value.trim(),duration_days:parseInt(document.getElementById('plan-days').value),price:parseFloat(document.getElementById('plan-price').value),description:document.getElementById('plan-desc').value.trim(),is_active:document.getElementById('plan-active').checked};
+    const body={plan_name:document.getElementById('plan-name').value.trim(),duration_days:parseInt(document.getElementById('plan-days').value),price:parseFloat(document.getElementById('plan-price').value),description:document.getElementById('plan-desc').value.trim(),is_active:document.getElementById('plan-active').checked,P_name:document.getElementById('plan-lot').value};
     let r; if(id) r=await put('/api/pass-plans/'+id,body); else r=await post('/api/pass-plans',body);
     if(r&&r.ok){hideModal('plan-modal');showSuccess('alert-box','套餐已保存');loadPlans();} else alert(r?.data?.error||'保存失败');
 }
-function openPlanModal(planId, name, days, price, desc, active) {
+async function openPlanModal(planId, name, days, price, desc, active, pname) {
+    await populateLotSelect('plan-lot', pname);
     document.getElementById('edit-plan-id').value=planId||''; document.getElementById('plan-name').value=name||'';
     document.getElementById('plan-days').value=days||30; document.getElementById('plan-price').value=price||0;
-    document.getElementById('plan-desc').value=desc||''; document.getElementById('plan-active').checked=active!==false; showModal('plan-modal');
+    document.getElementById('plan-desc').value=desc||''; document.getElementById('plan-active').checked=active!==false;
+    if(pname) document.getElementById('plan-lot').value = pname;
+    showModal('plan-modal');
 }
 
 // ========== Billing Rules ==========
 async function loadBillingRules() {
     const res=await get('/api/parking/billing-rules'); const tbody=document.getElementById('billing-table');
     if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="8">加载失败</td></tr>';return;}
-    tbody.innerHTML=(res.data.rules||[]).map(r=>`<tr data-billing-id="${r.id}" data-billing-type="${escapeHtml(r.rule_type)}" data-tier-config="${escapeHtml(r.tier_config||'')}">
+    let rules=res.data.rules||[];
+    const lotSel=document.getElementById('billing-lot-select');
+    if(lotSel&&lotSel.value) rules=rules.filter(r=>r.P_name===lotSel.value);
+    tbody.innerHTML=rules.map(r=>`<tr data-billing-id="${r.id}" data-billing-type="${escapeHtml(r.rule_type)}" data-tier-config="${escapeHtml(r.tier_config||'')}">
         <td>${escapeHtml(r.rule_name)}</td><td>${escapeHtml(r.rule_type)}</td><td>${r.free_minutes}</td>
         <td>${parseFloat(r.hourly_rate).toFixed(2)}</td><td>${parseFloat(r.max_daily_fee||0).toFixed(2)}</td>
-        <td>${escapeHtml(r.description||'-')}</td><td>${r.is_active?'<span class="badge badge-success">启用</span>':'<span class="badge badge-danger">禁用</span>'}</td>
+        <td>${escapeHtml(r.description||'-')}</td><td>${escapeHtml(r.P_name||'-')}</td><td>${r.is_active?'<span class="badge badge-success">启用</span>':'<span class="badge badge-danger">禁用</span>'}</td>
         <td><button class="btn btn-default btn-sm btn-edit-billing">编辑</button></td></tr>`).join('');
 }
-function editBillingRule(row) {
+async function openBillingAdd() {
+    document.getElementById('edit-billing-id').value = '';
+    document.getElementById('edit-billing-type').value = 'standard';
+    document.getElementById('billing-name').value = '';
+    document.getElementById('billing-free').value = '30';
+    document.getElementById('billing-rate').value = '5.00';
+    document.getElementById('billing-max').value = '50';
+    document.getElementById('billing-desc').value = '';
+    document.getElementById('billing-tier-config').value = '';
+    document.getElementById('billing-active').checked = true;
+    document.getElementById('tier-config-group').style.display = 'none';
+    document.getElementById('btn-delete-billing').style.display = 'none';
+    await populateLotSelect('billing-lot-modal', '');
+    showModal('billing-modal');
+}
+async function editBillingRule(row) {
     const type=row.dataset.billingType;
+    const pname = row.cells[6].textContent.trim();
+    await populateLotSelect('billing-lot-modal', pname === '-' ? '' : pname);
     document.getElementById('edit-billing-id').value=parseInt(row.dataset.billingId); document.getElementById('billing-name').value=row.cells[0].textContent.trim();
     document.getElementById('billing-free').value=row.cells[2].textContent.trim(); document.getElementById('billing-rate').value=row.cells[3].textContent.trim();
     document.getElementById('billing-max').value=row.cells[4].textContent.trim()==='-'?'':row.cells[4].textContent.trim();
     document.getElementById('billing-desc').value=row.cells[5].textContent.trim()==='-'?'':row.cells[5].textContent.trim();
-    document.getElementById('billing-active').checked=row.cells[6].textContent.includes('启用'); document.getElementById('edit-billing-type').value=type;
+    document.getElementById('billing-active').checked=row.cells[7].textContent.includes('启用'); document.getElementById('edit-billing-type').value=type;
     const tg=document.getElementById('tier-config-group'), tc=document.getElementById('billing-tier-config');
-    tg.style.display=type==='tiered'?'':'none'; tc.value=row.dataset.tierConfig||''; showModal('billing-modal');
+    tg.style.display=type==='tiered'?'':'none'; tc.value=row.dataset.tierConfig||'';
+    document.getElementById('btn-delete-billing').style.display = 'inline-block';
+    showModal('billing-modal');
 }
 async function saveBillingRule() {
     const id=document.getElementById('edit-billing-id').value, type=document.getElementById('edit-billing-type').value;
-    const body={rule_name:document.getElementById('billing-name').value.trim(),rule_type:type,free_minutes:parseInt(document.getElementById('billing-free').value),hourly_rate:parseFloat(document.getElementById('billing-rate').value),max_daily_fee:parseFloat(document.getElementById('billing-max').value)||0,description:document.getElementById('billing-desc').value.trim(),is_active:document.getElementById('billing-active').checked};
+    const body={rule_name:document.getElementById('billing-name').value.trim(),rule_type:type,free_minutes:parseInt(document.getElementById('billing-free').value),hourly_rate:parseFloat(document.getElementById('billing-rate').value),max_daily_fee:parseFloat(document.getElementById('billing-max').value)||0,description:document.getElementById('billing-desc').value.trim(),is_active:document.getElementById('billing-active').checked,P_name:document.getElementById('billing-lot-modal').value};
     if(type==='tiered') body.tier_config=document.getElementById('billing-tier-config').value.trim();
-    const r=await put('/api/parking/billing-rules/'+id,body);
-    if(r&&r.ok){hideModal('billing-modal');showSuccess('alert-box','规则已更新');loadBillingRules();} else alert(r?.data?.error||'更新失败');
+    let r;
+    if(id) r=await put('/api/parking/billing-rules/'+id,body);
+    else r=await post('/api/parking/billing-rules',body);
+    if(r&&r.ok){hideModal('billing-modal');showSuccess('alert-box',id?'规则已更新':'规则已添加');loadBillingRules();} else alert(r?.data?.error||'保存失败');
+}
+async function deleteBillingRule() {
+    const id=document.getElementById('edit-billing-id').value;
+    if(!confirm('确定删除此计费规则？')) return;
+    const r=await request('/api/parking/billing-rules/'+id, {method:'DELETE'});
+    if(r&&r.ok){hideModal('billing-modal');showSuccess('alert-box','规则已删除');loadBillingRules();} else alert(r?.data?.error||'删除失败');
 }
 
 // ========== Monthly Passes ==========
@@ -199,8 +279,10 @@ async function loadBlacklist() {
     tbody.innerHTML=list.map(e=>`<tr data-bl-id="${e.id}"><td>${e.id}</td><td><strong>${escapeHtml(e.license_plate)}</strong></td><td>${escapeHtml(e.reason||'-')}</td><td>${formatDateTime(e.created_at)}</td><td><button class="btn btn-danger btn-sm btn-remove-blacklist">移除</button></td></tr>`).join('');
 }
 async function addBlacklist() {
-    const plate=document.getElementById('bl-plate').value.trim(), reason=document.getElementById('bl-reason').value.trim();
+    const plate=document.getElementById('bl-plate').value.trim().toUpperCase(), reason=document.getElementById('bl-reason').value.trim();
     if(!plate){showError('bl-alert','请输入车牌号');return;}
+    if(plate.length<7||plate.length>8){showError('bl-alert','车牌号格式不正确，应为省份汉字+字母+5-6位数字/字母');return;}
+    if(!/^[一-鿿][A-Z][A-Z0-9]{5,6}$/.test(plate)){showError('bl-alert','车牌号格式不正确');return;}
     const r=await post('/api/blacklist',{license_plate:plate,reason});
     if(r&&r.ok){showSuccess('bl-alert','已添加');document.getElementById('bl-plate').value='';document.getElementById('bl-reason').value='';loadBlacklist();}
     else showError('bl-alert',r?.data?.error||'添加失败');
@@ -230,6 +312,8 @@ document.addEventListener('click',function(e){
     else if(t.classList.contains('btn-delete-pass')) { deactivatePass(parseInt(row.dataset.passId)); }
     else if(t.classList.contains('btn-remove-blacklist')) { removeBlacklist(parseInt(row.dataset.blId)); }
     else if(t.classList.contains('btn-checkout-vehicle')) { checkoutVehicle(row.cells[0].textContent.trim()); }
+    else if(t.classList.contains('btn-edit-bulletin')) { openBulletinModal(parseInt(row.dataset.bulletinId)); }
+    else if(t.classList.contains('btn-delete-bulletin')) { deleteBulletin(parseInt(row.dataset.bulletinId)); }
 });
 
 async function deleteUser(id) { if(!confirm('确定删除用户(ID:'+id+')？'))return; const r=await del('/api/user/'+id); if(r&&r.ok){showSuccess('alert-box','已删除');loadUsers();} else showError('alert-box',r?.data?.error||'删除失败'); }
@@ -237,18 +321,235 @@ async function deletePlan(id) { if(!confirm('确定删除此套餐？'))return; 
 async function deactivatePass(id) { if(!confirm('确定停用此月卡？停用后该车牌恢复收费。'))return; const r=await del('/api/parking/monthly-passes/'+id); if(r&&r.ok){showSuccess('alert-box','月卡已停用');loadPasses();} else showError('alert-box','停用失败'); }
 async function removeBlacklist(id) { if(!confirm('确定移除？'))return; const r=await del('/api/blacklist/'+id); if(r&&r.ok){showSuccess('alert-box','已移除');loadBlacklist();} }
 
-// ========== Notice ==========
-async function loadNotice() {
-    const res = await get('/api/bulletin');
-    if (res && res.ok) {
-        document.getElementById('notice-editor').value = res.data.notice || '';
+async function loadInterceptions() {
+    const res = await get('/api/blacklist/interceptions');
+    const tbody = document.getElementById('interceptions-table');
+    if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>'; return; }
+    const list = res.data.interceptions || [];
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="color:#999">暂无拦截记录</td></tr>'; return; }
+    tbody.innerHTML = list.map(l => '<tr><td>' + l.id + '</td><td><strong>' + escapeHtml(l.license_plate) + '</strong></td><td>' + escapeHtml(l.reason || '-') + '</td><td>' + formatDateTime(l.intercepted_at) + '</td></tr>').join('');
+}
+
+async function exportReport() {
+    const start = document.getElementById('export-start').value || '';
+    const end = document.getElementById('export-end').value || '';
+    const token = sessionStorage.getItem('token');
+    const params = new URLSearchParams();
+    if (start) params.set('start', start);
+    if (end) params.set('end', end);
+    const url = '/api/report/export' + (params.toString() ? '?' + params.toString() : '');
+    const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!resp.ok) { showError('export-alert', '导出失败'); return; }
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'report' + (start ? '_' + start : '') + (end ? '_' + end : '') + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
+// ========== Bulletin ==========
+async function loadBulletins() {
+    const res = await get('/api/bulletin/all');
+    const tbody = document.getElementById('bulletins-table');
+    if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="6">加载失败</td></tr>'; return; }
+    const list = res.data.bulletins || [];
+    if (!list.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:#999">暂无公告</td></tr>'; return; }
+    tbody.innerHTML = list.map(b => `<tr data-bulletin-id="${b.id}">
+        <td>${b.id}</td>
+        <td>${escapeHtml((b.content||'').substring(0, 50))}${(b.content||'').length > 50 ? '...' : ''}</td>
+        <td>${b.is_pinned ? '<span class="badge badge-danger">置顶</span>' : '<span class="badge badge-default">否</span>'}</td>
+        <td>${b.valid_from ? formatDateTime(b.valid_from) : '-'}</td>
+        <td>${b.valid_until ? formatDateTime(b.valid_until) : '-'}</td>
+        <td><button class="btn btn-default btn-sm btn-edit-bulletin">编辑</button> <button class="btn btn-danger btn-sm btn-delete-bulletin">删除</button></td>
+    </tr>`).join('');
+}
+function openBulletinModal(id) {
+    document.getElementById('edit-bulletin-id').value = id || '';
+    if (id) {
+        const row = document.querySelector(`tr[data-bulletin-id="${id}"]`);
+        if (row) {
+            document.getElementById('bulletin-pinned').checked = row.cells[2].textContent.includes('置顶');
+        }
+        get('/api/bulletin/all').then(res => {
+            if (res && res.ok) {
+                const b = (res.data.bulletins || []).find(x => x.id === id);
+                if (b) {
+                    document.getElementById('bulletin-content').value = b.content || '';
+                    document.getElementById('bulletin-valid-from').value = b.valid_from ? b.valid_from.replace(' ', 'T').substring(0, 16) : '';
+                    document.getElementById('bulletin-valid-until').value = b.valid_until ? b.valid_until.replace(' ', 'T').substring(0, 16) : '';
+                    document.getElementById('bulletin-pinned').checked = !!b.is_pinned;
+                }
+            }
+        });
+    } else {
+        document.getElementById('bulletin-content').value = '';
+        document.getElementById('bulletin-valid-from').value = '';
+        document.getElementById('bulletin-valid-until').value = '';
+        document.getElementById('bulletin-pinned').checked = false;
+    }
+    showModal('bulletin-modal');
+}
+async function saveBulletin() {
+    const id = document.getElementById('edit-bulletin-id').value;
+    const content = document.getElementById('bulletin-content').value.trim();
+    const is_pinned = document.getElementById('bulletin-pinned').checked;
+    const valid_from = document.getElementById('bulletin-valid-from').value;
+    const valid_until = document.getElementById('bulletin-valid-until').value;
+    if (!content) { showError('notice-alert', '内容不能为空'); return; }
+    const body = { content, is_pinned, valid_from: valid_from || '', valid_until: valid_until || '' };
+    let r;
+    if (id) r = await put('/api/bulletin/' + id, body);
+    else r = await post('/api/bulletin', body);
+    if (r && r.ok) { hideModal('bulletin-modal'); showSuccess('notice-alert', id ? '公告已更新' : '公告已创建'); loadBulletins(); }
+    else showError('notice-alert', r?.data?.error || '保存失败');
+}
+async function deleteBulletin(id) {
+    if (!confirm('确定删除此公告？')) return;
+    const r = await del('/api/bulletin/' + id);
+    if (r && r.ok) { showSuccess('notice-alert', '公告已删除'); loadBulletins(); }
+    else showError('notice-alert', r?.data?.error || '删除失败');
+}
+
+// ========== Notice (legacy) ==========
+async function saveNotice() {
+    const content = document.getElementById('notice-editor').value.trim();
+    if (!content) { showError('notice-alert', '公告内容不能为空'); return; }
+    const r = await post('/api/bulletin', { content, is_pinned: false, valid_from: '', valid_until: '' });
+    if (r && r.ok) showSuccess('notice-alert', '公告已保存');
+    else showError('notice-alert', r?.data?.error || '保存失败');
+}
+
+// ========== Message Management (Admin) ==========
+let _selectedMsgUserId = 0;
+let _msgPollTimer = null;
+
+async function loadConversations() {
+    const res = await get('/api/message/conversations');
+    const list = document.getElementById('conversation-list');
+    if (!res || !res.ok) { list.innerHTML = '<p style="color:#999;padding:16px;text-align:center;">加载失败</p>'; return; }
+    const convos = res.data.conversations || [];
+    if (!convos.length) { list.innerHTML = '<p style="color:#999;padding:16px;text-align:center;">暂无用户消息</p>'; return; }
+    list.innerHTML = convos.map(c => `
+        <div class="msg-convo-item" data-uid="${c.user_id}"
+             style="padding:10px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer;transition:background .15s"
+             onclick="selectConversation(${c.user_id})"
+             onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background=''">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <strong style="font-size:13px;">${escapeHtml(c.truename || c.username)}</strong>
+                ${c.unread_count > 0 ? '<span class="badge badge-danger" style="font-size:11px;">' + c.unread_count + '</span>' : ''}
+            </div>
+            <div style="font-size:12px;color:#999;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                ${escapeHtml((c.last_message||'').substring(0, 40))}</div>
+            <div style="font-size:11px;color:#bbb;margin-top:1px;">${formatDateTime(c.last_time)}</div>
+        </div>`).join('');
+
+    // Highlight the currently selected user
+    if (_selectedMsgUserId > 0) {
+        const sel = list.querySelector(`.msg-convo-item[data-uid="${_selectedMsgUserId}"]`);
+        if (sel) sel.style.background = '#e6f7ff';
     }
 }
-async function saveNotice() {
-    const notice = document.getElementById('notice-editor').value.trim();
-    const r = await put('/api/bulletin', { notice });
-    if (r && r.ok) showSuccess('notice-alert', '公告已更新');
-    else showError('notice-alert', r?.data?.error || '更新失败');
+
+async function selectConversation(userId) {
+    _selectedMsgUserId = userId;
+    document.getElementById('msg-chat-header').textContent = '对话中...';
+    document.getElementById('msg-chat-messages').innerHTML = '<p style="color:#999;text-align:center;padding:40px;">加载中...</p>';
+    document.getElementById('msg-input').value = '';
+    document.getElementById('msg-input').focus();
+
+    // Highlight in list
+    document.querySelectorAll('.msg-convo-item').forEach(el => el.style.background = '');
+    const item = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
+    if (item) item.style.background = '#e6f7ff';
+
+    const res = await get('/api/message/history?user_id=' + userId);
+    const container = document.getElementById('msg-chat-messages');
+    if (!res || !res.ok) { container.innerHTML = '<p style="color:#999;text-align:center;">加载失败</p>'; return; }
+    const messages = res.data.messages || [];
+    if (!messages.length) { container.innerHTML = '<p style="color:#999;text-align:center;">暂无消息</p>'; return; }
+
+    const currentUser = getUser();
+    let html = '';
+    messages.forEach(m => {
+        const isSent = String(m.sender_id) === String(currentUser.id);
+        const time = (m.created_at || '').split(' ')[1] || '';
+        html += `<div style="max-width:70%;padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.4;word-break:break-word;align-self:${isSent?'flex-end':'flex-start'};background:${isSent?'#00aa7f':'#f0f0f0'};color:${isSent?'#fff':'#333'};${isSent?'':'border-bottom-left-radius:4px;'};${isSent?'border-bottom-right-radius:4px':''}">
+            ${escapeHtml(m.content)}
+            <div style="font-size:10px;margin-top:2px;opacity:0.7;text-align:${isSent?'right':'left'}">${time}</div>
+        </div>`;
+    });
+    container.innerHTML = html;
+    container.scrollTop = container.scrollHeight;
+
+    // Update header
+    const userItem = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
+    const userName = userItem ? userItem.querySelector('strong').textContent : '用户';
+    document.getElementById('msg-chat-header').textContent = '与 ' + userName + ' 的对话';
+}
+
+async function sendAdminReply() {
+    if (_selectedMsgUserId <= 0) { showError('msg-alert', '请先选择一位用户'); return; }
+    const input = document.getElementById('msg-input');
+    const content = input.value.trim();
+    if (!content) return;
+    input.value = '';
+    const res = await post('/api/message/send', { receiver_id: _selectedMsgUserId, content });
+    if (res && res.ok) {
+        selectConversation(_selectedMsgUserId);
+        loadConversations();
+    } else {
+        showError('msg-alert', res?.data?.error || '发送失败');
+    }
+}
+
+// Enter key to send
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('msg-input');
+    if (input) input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminReply(); }
+    });
+});
+
+// ========== Parking Fee (Task D) ==========
+async function calculateParkingFee() {
+    const userId = document.getElementById('fee-user-id').value;
+    const plate = document.getElementById('fee-plate').value.trim();
+    const inTime = document.getElementById('fee-in-time').value;
+    const outTime = document.getElementById('fee-out-time').value;
+    if (!plate || !inTime || !outTime) { showError('parking-alert', '请填写车牌号和时间'); return; }
+    const inTs = Math.floor(new Date(inTime).getTime() / 1000);
+    const outTs = Math.floor(new Date(outTime).getTime() / 1000);
+    const r = await post('/api/balance/calculate-fee', { in_time: inTs, out_time: outTs });
+    if (r && r.ok) {
+        document.getElementById('show-fee').textContent = parseFloat(r.data.fee).toFixed(2);
+        document.getElementById('show-rule').textContent = r.data.rule || '-';
+    } else { showError('parking-alert', r?.data?.error || '计算失败'); return; }
+    if (userId) {
+        const bal = await get('/api/balance/' + userId);
+        if (bal && bal.ok) document.getElementById('show-balance').textContent = parseFloat(bal.data.balance).toFixed(2);
+        // Check monthly pass
+        const passRes = await get('/api/balance/my');
+        document.getElementById('show-pass').textContent = '查询中...';
+    }
+}
+async function doParkingDeduct() {
+    const userId = parseInt(document.getElementById('fee-user-id').value);
+    const plate = document.getElementById('fee-plate').value.trim();
+    const inTime = document.getElementById('fee-in-time').value;
+    const outTime = document.getElementById('fee-out-time').value;
+    if (!userId || !plate || !inTime || !outTime) { showError('parking-alert', '请填写完整信息'); return; }
+    const inTs = Math.floor(new Date(inTime).getTime() / 1000);
+    const outTs = Math.floor(new Date(outTime).getTime() / 1000);
+    const r = await post('/api/balance/parking-deduct', { user_id: userId, license_plate: plate, in_time: inTs, out_time: outTs });
+    if (r && r.ok) {
+        showSuccess('parking-alert', '扣费成功！费用: ¥' + parseFloat(r.data.fee).toFixed(2) + '，余额: ¥' + parseFloat(r.data.balance).toFixed(2));
+        document.getElementById('show-fee').textContent = parseFloat(r.data.fee).toFixed(2);
+        document.getElementById('show-balance').textContent = parseFloat(r.data.balance).toFixed(2);
+    } else { showError('parking-alert', r?.data?.message || r?.data?.error || '扣费失败'); }
 }
 
 loadUsers();
+
+// ========== Feedback / Chat ==========
+let currentChatUserId = 0;

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户反馈 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="app-container">
+    <div class="sidebar">
+        <div class="sidebar-logo"><h2>Smart Parking</h2><p>智慧停车管理系统</p></div>
+        <div class="sidebar-nav">
+            <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
+            <a class="nav-item" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
+            <a class="nav-item" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
+            <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
+            <a class="nav-item" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
+            <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
+            <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
+            <a class="nav-item" id="nav-profile" href="/profile.html"><span class="icon">&#128101;</span> 个人中心</a>
+            <a class="nav-item active" id="nav-chat" href="/feedback.html"><span class="icon">&#128172;</span> 用户反馈</a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-info"><div class="user-avatar">U</div><div><div class="user-name">用户</div><div class="user-role">普通用户</div></div></div>
+            <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="page-header"><h1>用户反馈</h1><p>查看和回复用户消息</p></div>
+        <div style="display:flex;gap:16px;height:calc(100vh - 180px);">
+            <div style="width:280px;overflow-y:auto;border-right:1px solid #f0f0f0;padding-right:12px;">
+                <div style="font-weight:600;margin-bottom:12px;">会话列表</div>
+                <div id="conversation-list"><div style="color:#999">暂无会话</div></div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;">
+                <div id="feedback-user-info" class="card" style="margin-bottom:12px;display:none;padding:0;">
+                    <div style="display:flex;gap:16px;align-items:flex-start;padding:12px;">
+                        <div style="width:48px;height:48px;font-size:20px;display:flex;align-items:center;justify-content:center;background:#00aa7f;color:#fff;border-radius:50%;flex-shrink:0;" id="feedback-avatar">U</div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600;font-size:15px;" id="feedback-username"></div>
+                            <div style="font-size:12px;color:#999;margin-top:2px;" id="feedback-userdetail"></div>
+                        </div>
+                    </div>
+                    <div style="border-top:1px solid #f0f0f0;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;font-size:12px;">
+                        <div><span style="color:#999;">姓名：</span><span id="feedback-truename"></span></div>
+                        <div><span style="color:#999;">手机：</span><span id="feedback-telephone"></span></div>
+                        <div><span style="color:#999;">角色：</span><span id="feedback-role"></span></div>
+                        <div><span style="color:#999;">余额：</span><span id="feedback-balance"></span></div>
+                        <div><span style="color:#999;">用户：</span><span id="feedback-raw-username"></span></div>
+                        <div><span style="color:#999;">注册：</span><span id="feedback-created"></span></div>
+                    </div>
+                </div>
+                <div id="feedback-messages" style="flex:1;overflow-y:auto;padding:12px;background:#fafafa;border-radius:8px;">
+                    <div style="text-align:center;color:#999;">选择左侧会话查看消息</div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                    <input type="text" id="feedback-reply-input" class="form-control" placeholder="输入回复..." style="flex:1;">
+                    <button class="btn btn-primary" onclick="sendAdminReply()">发送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/js/common.js"></script>
+<script src="/js/feedback.js"></script>
+</body>
+</html>

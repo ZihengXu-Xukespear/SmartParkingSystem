@@ -8,7 +8,8 @@ void PassPlanController::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/pass-plans").methods("GET"_method)([](const crow::request& req) {
         if (!BaseController::isAuthenticated(req))
             return BaseController::errorResponse(401, "请先登录");
-        auto plans = PassPlanService::instance().getActivePlans();
+        auto p = req.url_params.get("P_name");
+        auto plans = PassPlanService::instance().getActivePlans(p ? p : "");
         crow::json::wvalue res;
         res["plans"] = BaseController::toJsonArray(plans);
         return crow::response(res);
@@ -24,6 +25,7 @@ void PassPlanController::registerRoutes(crow::SimpleApp& app) {
         plan.duration_days = body["duration_days"].i();
         plan.price = body["price"].d();
         plan.description = body.has("description") ? std::string(body["description"].s()) : "";
+        plan.P_name = body.has("P_name") ? std::string(body["P_name"].s()) : "";
         if (!PassPlanService::instance().addPlan(plan))
             return BaseController::errorResponse(400, "添加失败");
         return BaseController::successResponse("套餐已添加");
@@ -40,6 +42,7 @@ void PassPlanController::registerRoutes(crow::SimpleApp& app) {
         plan.price = body["price"].d();
         plan.description = body.has("description") ? std::string(body["description"].s()) : "";
         plan.is_active = body["is_active"].b();
+        plan.P_name = body.has("P_name") ? std::string(body["P_name"].s()) : "";
         if (!PassPlanService::instance().updatePlan(id, plan))
             return BaseController::errorResponse(400, "更新失败");
         return BaseController::successResponse("套餐已更新");

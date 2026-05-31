@@ -13,6 +13,7 @@ public:
     std::string tier_config;
     std::string description;
     bool is_active = true;
+    std::string P_name;
 
     int getId() const override { return id; }
     void setId(int id_) override { id = id_; }
@@ -29,6 +30,7 @@ public:
         j["tier_config"] = tier_config;
         j["description"] = description;
         j["is_active"] = is_active;
+        j["P_name"] = P_name;
         return j;
     }
 };
@@ -41,6 +43,7 @@ public:
     double price = 300.00;
     std::string description;
     bool is_active = true;
+    std::string P_name;
 
     int getId() const override { return id; }
     void setId(int id_) override { id = id_; }
@@ -54,6 +57,7 @@ public:
         j["price"] = price;
         j["description"] = description;
         j["is_active"] = is_active;
+        j["P_name"] = P_name;
         return j;
     }
 };

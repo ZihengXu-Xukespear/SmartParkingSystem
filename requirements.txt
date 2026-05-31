@@ -1,0 +1,5 @@
+# License plate recognition (optional)
+hyperlpr3
+rapidocr
+onnxruntime
+opencv-python

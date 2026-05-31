@@ -33,9 +33,10 @@ bool UserService::updateUser(int id, const std::string& username, const std::str
 
     std::string sql = "UPDATE USER SET username=" + quote(mysql, username) +
         ", telephone=" + quote(mysql, telephone) +
-        ", truename=" + quote(mysql, truename) +
-        ", role=" + quote(mysql, role) +
-        " WHERE id=" + std::to_string(id);
+        ", truename=" + quote(mysql, truename);
+    if (!role.empty())
+        sql += ", role=" + quote(mysql, role);
+    sql += " WHERE id=" + std::to_string(id);
     return executeQuery(mysql, sql);
 }
 
