@@ -111,7 +111,8 @@ def main():
         # Take the highest confidence result
         best = max(results, key=lambda r: r[1])
         raw_plate = best[0] or ""  # HyperLPR3 returns Unicode str
-        plate_number = raw_plate.replace(' ', '')
+        # Strip spaces and separator dots (U+00B7 middle dot, U+30FB katakana dot)
+        plate_number = raw_plate.replace(' ', '').replace('·', '').replace('・', '')
         confidence = float(best[1])
         # Detect plate color from image (more reliable than HyperLPR3's field)
         color = detect_plate_color(img, best)

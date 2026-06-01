@@ -145,6 +145,7 @@ bool DBInit::createTables(const AppConfig& cfg) {
         "  is_active TINYINT DEFAULT 1,"
         "  user_id INT DEFAULT 0,"
         "  plan_id INT DEFAULT 0,"
+        "  P_name VARCHAR(255) DEFAULT '',"
         "  INDEX idx_plate (license_plate)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
@@ -303,6 +304,7 @@ bool DBInit::createTables(const AppConfig& cfg) {
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN spot_number INT DEFAULT 0");
     mysql_query(mysql, "ALTER TABLE BILLING_RULE ADD COLUMN P_name VARCHAR(255) DEFAULT ''");
     mysql_query(mysql, "ALTER TABLE PASS_PLAN ADD COLUMN P_name VARCHAR(255) DEFAULT ''");
+    mysql_query(mysql, "ALTER TABLE MONTHLY_PASS ADD COLUMN P_name VARCHAR(255) DEFAULT ''");
     // Backfill NULL P_name values on existing rows
     mysql_query(mysql, "UPDATE BILLING_RULE SET P_name='' WHERE P_name IS NULL");
     mysql_query(mysql, "UPDATE PASS_PLAN SET P_name='' WHERE P_name IS NULL");

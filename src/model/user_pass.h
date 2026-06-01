@@ -13,6 +13,7 @@ public:
     std::string end_date;
     double fee = 0.0;
     bool is_active = false;
+    std::string P_name;
 
     int getId() const override { return id; }
     void setId(int id_) override { id = id_; }
@@ -28,6 +29,7 @@ public:
         j["end_date"] = end_date;
         j["fee"] = fee;
         j["is_active"] = is_active;
+        j["P_name"] = P_name;
         return j;
     }
 };
