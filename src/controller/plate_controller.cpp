@@ -54,7 +54,14 @@ void PlateController::registerRoutes(crow::SimpleApp& app) {
         res["recognize_message"] = plate_result.message;
         res["_debug_raw_hex"] = ""; // will be filled if available
 
-        // Step 2: If plate was recognized, check registration
+        // Step 2: Validate plate format (reject obviously invalid OCR results)
+        bool plate_valid = false;
+        if (!plate_result.plate_number.empty()) {
+            plate_valid = PlateService::validatePlate(plate_result.plate_number);
+        }
+        res["plate_valid"] = plate_valid;
+
+        // Step 3: If plate was recognized, check registration
         if (!plate_result.plate_number.empty()) {
             auto reg_info = ps.checkRegistration(plate_result.plate_number);
 
@@ -67,6 +74,14 @@ void PlateController::registerRoutes(crow::SimpleApp& app) {
             res["registration"]["monthly_pass_end"] = reg_info.monthly_pass_end;
             res["registration"]["blacklist_reason"] = reg_info.blacklist_reason;
             res["registration"]["message"] = reg_info.message;
+        }
+
+        // Step 4: If recognition had results but failed format validation, warn the frontend
+        if (!plate_result.plate_number.empty() && !plate_valid) {
+            if (plate_result.message.empty() ||
+                plate_result.message == "识别成功") {
+                res["recognize_message"] = "识别结果格式校验未通过，请重新拍照";
+            }
         }
 
         crow::response cres(res);

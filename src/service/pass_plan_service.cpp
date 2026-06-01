@@ -61,7 +61,7 @@ bool PassPlanService::purchase(int userId, int planId, const std::string& licens
     MYSQL* mysql = conn->get();
     Transaction tx(mysql);
 
-    std::string sql = "SELECT plan_name,duration_days,price FROM PASS_PLAN WHERE id=" +
+    std::string sql = "SELECT plan_name,duration_days,price,COALESCE(P_name,'') FROM PASS_PLAN WHERE id=" +
         std::to_string(planId) + " AND is_active=1";
     if (mysql_query(mysql, sql.c_str()) != 0) { error = "套餐不存在"; return false; }
     MYSQL_RES* res = mysql_store_result(mysql);
@@ -74,6 +74,7 @@ bool PassPlanService::purchase(int userId, int planId, const std::string& licens
     std::string planName = row[0] ? row[0] : "月卡";
     int days = row[1] ? std::stoi(row[1]) : 30;
     double price = row[2] ? std::stod(row[2]) : 0;
+    std::string planPName = row[3] ? row[3] : "";
     mysql_free_result(res);
 
     double balance = BalanceService::instance().getBalance(userId);
@@ -87,7 +88,8 @@ bool PassPlanService::purchase(int userId, int planId, const std::string& licens
     }
 
     sql = "SELECT id,end_date FROM MONTHLY_PASS WHERE license_plate=" + quote(mysql, licensePlate) +
-        " AND is_active=1 AND end_date >= CURDATE() ORDER BY end_date DESC LIMIT 1";
+        " AND is_active=1 AND end_date >= CURDATE() AND P_name=" + quote(mysql, planPName) +
+        " ORDER BY end_date DESC LIMIT 1";
     int existingId = 0;
     if (mysql_query(mysql, sql.c_str()) == 0) {
         MYSQL_RES* eres = mysql_store_result(mysql);
@@ -108,10 +110,10 @@ bool PassPlanService::purchase(int userId, int planId, const std::string& licens
             return false;
         }
     } else {
-        sql = "INSERT INTO MONTHLY_PASS (license_plate,pass_type,start_date,end_date,fee,is_active,user_id,plan_id) VALUES (" +
+        sql = "INSERT INTO MONTHLY_PASS (license_plate,pass_type,start_date,end_date,fee,is_active,user_id,plan_id,P_name) VALUES (" +
             quote(mysql, licensePlate) + "," + quote(mysql, planName) + ",CURDATE(),DATE_ADD(CURDATE(),INTERVAL " +
             std::to_string(days) + " DAY)," + std::to_string(price) + ",1," +
-            std::to_string(userId) + "," + std::to_string(planId) + ")";
+            std::to_string(userId) + "," + std::to_string(planId) + "," + quote(mysql, planPName) + ")";
         if (mysql_query(mysql, sql.c_str()) != 0) {
             BalanceService::instance().refund(userId, price, "refund", "月卡购买失败退款 " + licensePlate);
             error = "创建月卡失败，已退款";
@@ -152,7 +154,7 @@ std::vector<UserPass> PassPlanService::getUserPurchasedPasses(int user_id) {
     MYSQL* conn = conn_guard->get();
 
     std::stringstream sql;
-    sql << "SELECT id, user_id, license_plate, pass_type, start_date, end_date, fee, is_active "
+    sql << "SELECT id, user_id, license_plate, pass_type, start_date, end_date, fee, is_active, COALESCE(P_name,'') "
         << "FROM MONTHLY_PASS WHERE user_id = " << user_id;
 
     // 3. 用取出的 MYSQL* 调用 C API
@@ -176,6 +178,7 @@ std::vector<UserPass> PassPlanService::getUserPurchasedPasses(int user_id) {
         p.end_date = row[5] ? row[5] : "";
         p.fee = row[6] ? std::stod(row[6]) : 0.0;
         p.is_active = row[7] ? (std::stoi(row[7]) != 0) : false;
+        p.P_name = row[8] ? row[8] : "";
         passes.push_back(p);
     }
 

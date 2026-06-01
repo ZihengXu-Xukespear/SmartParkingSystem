@@ -78,6 +78,7 @@ PlateService::PlateRegistrationInfo PlateService::checkRegistration(const std::s
         std::string sql = "SELECT end_date FROM MONTHLY_PASS "
                           "WHERE license_plate = '" + escaped + "' "
                           "AND end_date >= CURDATE() "
+                          "AND (P_name != '' AND P_name IS NOT NULL) "
                           "ORDER BY end_date DESC LIMIT 1";
         if (mysql_query(mysql, sql.c_str()) == 0) {
             MYSQL_RES* res = mysql_store_result(mysql);
@@ -129,34 +130,90 @@ PlateService::PlateRegistrationInfo PlateService::checkRegistration(const std::s
 }
 
 bool PlateService::validatePlate(const std::string& plate) {
-    // Standard plate: province(1) + letter(1) + 5 alphanum = 7 Chinese chars → 9-10 UTF-8 bytes
-    // New energy plate: province(1) + letter(1) + 6 alphanum = 8 Chinese chars → 10-11 UTF-8 bytes
-    if (plate.size() < 9 || plate.size() > 11) return false;
+    // Chinese license plate format rules:
+    //
+    // Standard plate (7 chars, 9 UTF-8 bytes):
+    //   Pattern: Province(3B) + CityLetter(1B) + 5 alphanumeric(5B)
+    //   Example: 京A12345, 沪B5F678
+    //
+    // New energy plate (8 chars, 10 UTF-8 bytes):
+    //   Small car:  Province(3B) + CityLetter(1B) + D/F(1B) + 5 digits(5B)
+    //     Example: 京AD12345
+    //   Large car:  Province(3B) + CityLetter(1B) + 5 digits(5B) + D/F(1B)
+    //     Example: 京A12345D
+    //
+    // After the province character (3 bytes UTF-8), all remaining characters
+    // are ASCII (A-Z, 0-9), so byte indexing is straightforward.
 
-    // Verify province prefix (each Chinese char is 3 bytes in UTF-8)
-    const std::string provinces = "京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤川青藏琼宁";
+    // Normalize: strip any middle dot separator (· U+00B7, 2 bytes) and spaces
+    std::string normalized;
+    normalized.reserve(plate.size());
+    for (size_t i = 0; i < plate.size(); ) {
+        unsigned char c = static_cast<unsigned char>(plate[i]);
+        if (c == 0xC2 && i + 1 < plate.size() &&
+            static_cast<unsigned char>(plate[i + 1]) == 0xB7) {
+            // Skip UTF-8 encoded middle dot (· = U+00B7 = 0xC2 0xB7)
+            i += 2;
+            continue;
+        }
+        if (plate[i] == ' ') { i++; continue; }
+        normalized += plate[i];
+        i++;
+    }
+
+    size_t len = normalized.size();
+
+    // Standard plate: 9 bytes, new energy: 10 bytes
+    if (len != 9 && len != 10) return false;
+
+    // Verify province prefix (first 3 bytes = one Chinese character in UTF-8)
+    const std::string provinces =
+        "京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤川青藏琼宁港澳";
     bool validProvince = false;
     for (size_t i = 0; i < provinces.size(); i += 3) {
-        if (plate.substr(0, 3) == provinces.substr(i, 3)) {
+        if (normalized.substr(0, 3) == provinces.substr(i, 3)) {
             validProvince = true;
             break;
         }
     }
     if (!validProvince) return false;
 
-    // Position 3 must be an uppercase letter (the city/region code)
-    if (plate[3] < 'A' || plate[3] > 'Z') return false;
+    // Second character (byte index 3) must be an uppercase letter (city code)
+    if (normalized[3] < 'A' || normalized[3] > 'Z') return false;
 
-    // Remaining characters (positions 4+) must be alphanumeric (A-Z or 0-9)
-    for (size_t i = 4; i < plate.size(); i++) {
-        char c = plate[i];
-        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
-            return false;
+    if (len == 9) {
+        // Standard 7-char plate: positions 2-6 (bytes 4-8) must be A-Z or 0-9
+        for (size_t i = 4; i < 9; i++) {
+            char c = normalized[i];
+            if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+                return false;
+        }
+        return true;
     }
 
-    // Length check: 7 chars (9 bytes) or 8 chars (10-11 bytes, new energy plates may include D/F)
-    // 7-char: province(3) + letter(1) + 5 digits(5) = 9 bytes minimum
-    // 8-char: province(3) + letter(1) + 6 alphanum(6) = 10 bytes (new energy)
-    // Allow 9-11 bytes to be safe
-    return true;
+    // len == 10: New energy plate (8 chars)
+    // Two valid formats:
+    //   Small car (省AD12345): byte 4 is D/F, bytes 5-9 are digits
+    //   Large car (省A12345D): bytes 4-8 are digits, byte 9 is D/F
+    bool dAtPos2 = (normalized[4] == 'D' || normalized[4] == 'F');
+    bool dAtLast = (normalized[9] == 'D' || normalized[9] == 'F');
+
+    if (dAtPos2 && !dAtLast) {
+        // Small new energy car: 省xDxxxxx (all x positions must be digits)
+        for (size_t i = 5; i < 10; i++) {
+            if (normalized[i] < '0' || normalized[i] > '9') return false;
+        }
+        return true;
+    }
+
+    if (dAtLast && !dAtPos2) {
+        // Large new energy car: 省xxxxxD (all x positions must be digits)
+        for (size_t i = 4; i < 9; i++) {
+            if (normalized[i] < '0' || normalized[i] > '9') return false;
+        }
+        return true;
+    }
+
+    // Invalid: D/F in both positions, or neither position has D/F
+    return false;
 }

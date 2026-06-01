@@ -73,6 +73,7 @@ public:
     bool is_active = true;
     int user_id = 0;
     int plan_id = 0;
+    std::string P_name;
 
     int getId() const override { return id; }
     void setId(int id_) override { id = id_; }
@@ -89,6 +90,7 @@ public:
         j["is_active"] = is_active;
         j["user_id"] = user_id;
         j["plan_id"] = plan_id;
+        j["P_name"] = P_name;
         return j;
     }
 };

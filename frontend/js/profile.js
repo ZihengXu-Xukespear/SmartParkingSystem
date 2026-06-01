@@ -77,6 +77,7 @@ async function loadPasses() {
                 <div class="package-type">
                     ${item.license_plate} • ${escapeHtml(item.pass_type)}
                 </div>
+                ${item.P_name ? `<div style="font-size:12px;color:#1890ff;margin-bottom:2px">停车场：${escapeHtml(item.P_name)}</div>` : ''}
                 <div class="package-time">
                     生效时间：${formatDate(item.start_date)}<br>
                     到期时间：${formatDate(item.end_date)}
