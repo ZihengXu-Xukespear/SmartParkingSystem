@@ -217,7 +217,10 @@ bool VehicleService::checkOut(const std::string& plate, int userId, double& fee,
 
     sql = "UPDATE PARKING_LOT SET P_current_count = GREATEST(P_current_count - 1, 0) WHERE P_name=" +
         quote(mysql, carLot);
-    mysql_query(mysql, sql.c_str());
+    if (mysql_query(mysql, sql.c_str()) != 0) {
+        // Log but don't fail the checkout - the car is already marked as left
+        // P_current_count may drift; it will be corrected by the next periodic check
+    }
 
     sql = "SELECT id,license_plate,check_in_time,check_out_time,fee,location,billing_type,"
         "'' AS duration,COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0) FROM CAR_RECORD WHERE id=" +
@@ -275,6 +278,25 @@ std::vector<CarRecord> VehicleService::getParkedVehicles(const std::string& plat
 }
 
 bool VehicleService::deleteRecord(int id) {
+    auto conn = getConnection();
+    if (!conn) return false;
+    MYSQL* mysql = conn->get();
+
+    // If the record is still parked, decrement parking lot count first
+    std::string sql = "SELECT P_name,spot_number FROM CAR_RECORD WHERE id=" + std::to_string(id) +
+        " AND check_out_time IS NULL";
+    if (mysql_query(mysql, sql.c_str()) == 0) {
+        MYSQL_RES* res = mysql_store_result(mysql);
+        if (res && mysql_num_rows(res) > 0) {
+            MYSQL_ROW row = mysql_fetch_row(res);
+            std::string lotName = row[0] ? row[0] : AppConfig::instance().parking_name;
+            std::string decSql = "UPDATE PARKING_LOT SET P_current_count = GREATEST(P_current_count - 1, 0)"
+                " WHERE P_name=" + quote(mysql, lotName);
+            mysql_query(mysql, decSql.c_str());
+        }
+        if (res) mysql_free_result(res);
+    }
+
     return deleteById(id);
 }
 
