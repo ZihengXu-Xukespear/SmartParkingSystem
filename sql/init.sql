@@ -128,6 +128,18 @@ BEGIN
 END//
 DELIMITER ;
 
+-- 预约触发器：状态从 active 变为非 active 时减少预约数
+DROP TRIGGER IF EXISTS after_reservation_status_change//
+CREATE TRIGGER after_reservation_status_change
+AFTER UPDATE ON RESERVATION
+FOR EACH ROW
+BEGIN
+    IF OLD.status = 'active' AND NEW.status != 'active' THEN
+        UPDATE PARKING_LOT SET P_reserve_count = GREATEST(P_reserve_count - 1, 0) WHERE P_name = NEW.P_name;
+    END IF;
+END//
+DELIMITER ;
+
 -- 开启事件调度器
 SET GLOBAL event_scheduler = ON;
 
