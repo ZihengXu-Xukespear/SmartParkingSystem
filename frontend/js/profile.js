@@ -68,23 +68,43 @@ async function loadBalance() {
 async function loadPasses() {
     const container = document.getElementById('prof-passes');
     if (!container) return;
-    const res = await get('/api/parking/monthly-passes');
-    if (!res || !res.ok || !res.data.passes) {
-        container.innerHTML = '<p style="color:#999">暂无套餐</p>';
-        return;
-    }
-    // 过滤出当前用户的月卡（根据 user_id）
-    const myPasses = res.data.passes.filter(p => p.user_id === user.id);
-    if (myPasses.length === 0) {
-        container.innerHTML = '<p style="color:#999">暂无套餐</p>';
-        return;
-    }
-    container.innerHTML = myPasses.map(p => `
-        <div style="padding:8px; border-bottom:1px solid #f0f0f0">
-            <strong>${escapeHtml(p.license_plate)}</strong>
-            <span style="color:#666"> ${escapeHtml(p.pass_type)}</span>
-            <div style="font-size:11px; color:#999">
-                ${formatDate(p.start_date)} ~ ${formatDate(p.end_date)} | ${formatFee(p.fee)}
+
+    try {
+        // 请求接口（你原有接口不变）
+        const res = await get(`/api/parking/monthly-passes?user_id=${user.id}`);
+
+        // 请求失败 / 无数据
+        if (!res || !res.ok || !res.data.passes) {
+            container.innerHTML = '<div class="package-empty">暂无套餐</div>';
+            return;
+        }
+
+        // 筛选当前用户的套餐
+        const myPackages = res.data.passes.filter(p => p.user_id === user.id);
+
+        // 无套餐
+        if (myPackages.length === 0) {
+            container.innerHTML = '<div class="package-empty">暂无套餐</div>';
+            return;
+        }
+
+        // 渲染套餐列表
+        container.innerHTML = myPackages.map(item => `
+            <div class="package-item">
+                <div class="package-type">
+                    ${item.license_plate} • ${escapeHtml(item.pass_type)}
+                </div>
+                ${item.P_name ? `<div style="font-size:12px;color:#1890ff;margin-bottom:2px">停车场：${escapeHtml(item.P_name)}</div>` : ''}
+                <div class="package-time">
+                    生效时间：${formatDate(item.start_date)}<br>
+                    到期时间：${formatDate(item.end_date)}
+                </div>
+                <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-size:12px;color:#666">${formatFee(item.fee)}</span>
+                    <span class="badge ${item.is_active ? 'badge-success' : 'badge-danger'}" style="font-size:10px">
+                        ${item.is_active ? '有效' : '已过期'}
+                    </span>
+                </div>
             </div>
             <span class="badge ${p.is_active?'badge-success':'badge-danger'}" style="font-size:10px">
                 ${p.is_active?'有效':'过期'}

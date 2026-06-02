@@ -95,10 +95,10 @@
                     </div>
                 </div>
                 <div class="card" style="margin-top:16px;">
-                    <div class="card-title">已购月卡</div>
+                    <div class="card-title">已购套餐</div>
                     <div class="table-wrapper"><table>
-                        <thead><tr><th>ID</th><th>车牌</th><th>类型</th><th>生效</th><th>到期</th><th>费用</th><th>状态</th><th>操作</th></tr></thead>
-                        <tbody id="passes-table"><tr><td colspan="8">加载中...</td></tr></tbody>
+                        <thead><tr><th>ID</th><th>车牌</th><th>类型</th><th>停车场</th><th>生效</th><th>到期</th><th>费用</th><th>状态</th><th>操作</th></tr></thead>
+                        <tbody id="passes-table"><tr><td colspan="9">加载中...</td></tr></tbody>
                     </table></div>
                 </div>
             </div>
@@ -282,6 +282,29 @@
                 </div>
             </div>
 
+        <!-- 停车计费与余额扣费 -->
+        <div id="tab-parking-fee" class="hidden">
+            <div class="card">
+                <div class="card-title">停车计费 & 离场扣费</div>
+                <div id="parking-alert"></div>
+                <div class="form-group"><label>选择用户</label><select id="fee-user-id" class="form-control"><option value="">选择用户...</option></select></div>
+                <div class="form-group"><label>车牌号</label><input type="text" id="fee-plate" class="form-control" placeholder="京A12345"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>入场时间</label><input type="datetime-local" id="fee-in-time" class="form-control"></div>
+                    <div class="form-group"><label>离场时间</label><input type="datetime-local" id="fee-out-time" class="form-control"></div>
+                </div>
+                <button class="btn btn-primary" onclick="calculateParkingFee()">计算停车费</button>
+                <button class="btn btn-success" onclick="doParkingDeduct()">确认离场并扣费</button>
+                <div style="margin-top:16px;">
+                    <h4>计费结果</h4>
+                    <p>应缴费用：<span id="show-fee" style="color:red;font-weight:bold">0</span> 元</p>
+                    <p>用户余额：<span id="show-balance" style="color:blue;font-weight:bold">0</span> 元</p>
+                    <p>计费规则：<span id="show-rule">-</span></p>
+                    <p>月卡状态：<span id="show-pass">-</span></p>
+                </div>
+            </div>
+        </div>
+
         </div>
     </div>
 
@@ -366,6 +389,7 @@
                 <input type="hidden" id="edit-pass-id">
                 <div class="form-group"><label>车牌号</label><input type="text" id="pass-edit-plate" class="form-control" placeholder="京A12345"></div>
                 <div class="form-group"><label>套餐类型</label><input type="text" id="pass-edit-type" class="form-control" placeholder="月卡/季卡/年卡"></div>
+                <div class="form-group"><label>停车场</label><input type="text" id="pass-edit-pname" class="form-control" placeholder="停车场名称"></div>
                 <div class="form-row">
                     <div class="form-group"><label>开始日期</label><input type="date" id="pass-edit-start" class="form-control"></div>
                     <div class="form-group"><label>结束日期</label><input type="date" id="pass-edit-end" class="form-control"></div>
@@ -397,52 +421,11 @@
         </div>
     </div>
 
-    <!-- 停车计费与余额扣费 -->
-    <div id="tab-parking-fee" class="hidden">
-        <div class="card">
-            <div class="card-title">停车计费 & 离场扣费（任务D）</div>
-            <div id="parking-alert"></div>
-
-            <div class="form-group">
-                <label>用户ID</label>
-                <input type="number" id="fee-user-id" class="form-control" placeholder="输入用户ID">
-            </div>
-            <div class="form-group">
-                <label>车牌号</label>
-                <input type="text" id="fee-plate" class="form-control" placeholder="京A12345">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>入场时间</label>
-                    <input type="datetime-local" id="fee-in-time" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>离场时间</label>
-                    <input type="datetime-local" id="fee-out-time" class="form-control">
-                </div>
-            </div>
-
-            <button class="btn btn-primary" onclick="calculateParkingFee()">计算停车费</button>
-            <button class="btn btn-success" onclick="doParkingDeduct()">确认离场并扣费</button>
-
-            <div style="margin-top:16px;">
-                <h4>计费结果</h4>
-                <p>应缴费用：<span id="show-fee" style="color:red;font-weight:bold">0</span> 元</p>
-                <p>用户余额：<span id="show-balance" style="color:blue;font-weight:bold">0</span> 元</p>
-                <p>计费规则：<span id="show-rule">-</span></p>
-                <p>月卡状态：<span id="show-pass">-</span></p>
-            </div>
-        </div>
-    </div>
-
     <script>
-        // 追加标签页
+        // 追加停车计费标签页
         document.addEventListener('DOMContentLoaded', function () {
-            // 找到 tabs 栏
             let tabs = document.querySelector('.tabs');
             if (!tabs) return;
-
-            // 创建新标签
             let tab = document.createElement('div');
             tab.className = 'tab';
             tab.textContent = '停车计费';

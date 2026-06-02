@@ -128,7 +128,7 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
             if (p && p[0]) {
                 char buf[512];
                 mysql_real_escape_string(conn->get(), buf, p, (unsigned long)strlen(p));
-                sql += std::string(" AND P_name='") + buf + "'";
+                sql += std::string(" AND (P_name='") + buf + "' OR P_name='' OR P_name IS NULL)";
             }
             sql += " ORDER BY id";
             if (mysql_query(conn->get(), sql.c_str()) == 0) {
@@ -223,7 +223,24 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
             // if (!BaseController::isAuthenticated(req))
             //     return BaseController::errorResponse(401, "请先登录");
 
-            auto passes = BillingService::instance().getMonthlyPasses();
+            std::vector<MonthlyPass> passes;
+            auto userIdParam = req.url_params.get("user_id");
+            if (userIdParam) {
+                int userId = std::stoi(userIdParam);
+                passes = BillingService::instance().getMonthlyPasses(userId);
+            } else {
+                passes = BillingService::instance().getMonthlyPasses();
+            }
+
+            // Optional plate filter
+            auto plateParam = req.url_params.get("plate");
+            if (plateParam) {
+                std::string filterPlate(plateParam);
+                passes.erase(std::remove_if(passes.begin(), passes.end(),
+                    [&filterPlate](const MonthlyPass& p) { return p.license_plate != filterPlate; }),
+                    passes.end());
+            }
+
             crow::json::wvalue res;
             res["passes"] = BaseController::toJsonArray(passes);
             return crow::response(res);
@@ -243,6 +260,7 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
             pass.end_date = body["end_date"].s();
             pass.fee = body["fee"].d();
             pass.user_id = 0;
+            if (body.has("P_name")) pass.P_name = body["P_name"].s();
 
             if (!BillingService::instance().addMonthlyPass(pass))
                 return BaseController::errorResponse(400, "添加失败");
@@ -265,6 +283,7 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
         pass.start_date = body["start_date"].s();
         pass.end_date = body["end_date"].s();
         pass.fee = body["fee"].d();
+        if (body.has("P_name")) pass.P_name = body["P_name"].s();
         if (!BillingService::instance().updateMonthlyPass(id, pass))
             return BaseController::errorResponse(400, "更新失败");
         return BaseController::successResponse("更新成功");

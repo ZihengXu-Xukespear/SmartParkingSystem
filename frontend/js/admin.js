@@ -31,6 +31,7 @@ function switchTab(tab, ev) {
     else if(tab==='notice') loadBulletins();
     else if(tab==='messages') { loadConversations(); if(_selectedMsgUserId>0)selectConversation(_selectedMsgUserId); }
     else if(tab==='settings') { /* static content, no loading needed */ }
+    else if(tab==='parking-fee') { loadFeeUsers(); }
 }
 
 async function loadBillingLotSelector() {
@@ -207,32 +208,33 @@ async function deleteBillingRule() {
 // ========== Monthly Passes ==========
 async function loadPasses() {
     const res=await get('/api/parking/monthly-passes'); const tbody=document.getElementById('passes-table');
-    if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="8">加载失败</td></tr>';return;}
+    if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="9">加载失败</td></tr>';return;}
     const passes=res.data.passes||[];
-    if(!passes.length){tbody.innerHTML='<tr><td colspan="8">暂无</td></tr>';return;}
+    if(!passes.length){tbody.innerHTML='<tr><td colspan="9">暂无</td></tr>';return;}
     tbody.innerHTML=passes.map(p=>`<tr data-pass-id="${p.id}">
         <td>${p.id}</td><td><strong>${escapeHtml(p.license_plate)}</strong></td><td>${escapeHtml(p.pass_type)}</td>
+        <td>${escapeHtml(p.P_name||'-')}</td>
         <td>${formatDate(p.start_date)}</td><td>${formatDate(p.end_date)}</td><td>¥${parseFloat(p.fee).toFixed(2)}</td>
         <td>${p.is_active?'<span class="badge badge-success">有效</span>':'<span class="badge badge-danger">失效</span>'}</td>
         <td><button class="btn btn-default btn-sm btn-edit-pass">编辑</button><button class="btn btn-danger btn-sm btn-delete-pass">停用</button></td></tr>`).join('');
 }
 function openPassModal(id) {
-    document.getElementById('edit-pass-id').value=id||''; document.getElementById('pass-modal-title').textContent=id?'编辑月卡':'添加月卡';
+    document.getElementById('edit-pass-id').value=id||''; document.getElementById('pass-modal-title').textContent=id?'编辑套餐':'添加套餐';
     if(id){
         const row=document.querySelector(`tr[data-pass-id="${id}"]`);
-        if(row){document.getElementById('pass-edit-plate').value=row.cells[1].textContent.trim();document.getElementById('pass-edit-type').value=row.cells[2].textContent.trim();document.getElementById('pass-edit-start').value=row.cells[3].textContent.trim();document.getElementById('pass-edit-end').value=row.cells[4].textContent.trim();document.getElementById('pass-edit-fee').value=parseFloat(row.cells[5].textContent.replace('¥',''));document.getElementById('pass-edit-active').checked=row.cells[6].textContent.includes('有效');}
+        if(row){document.getElementById('pass-edit-plate').value=row.cells[1].textContent.trim();document.getElementById('pass-edit-type').value=row.cells[2].textContent.trim();document.getElementById('pass-edit-pname').value=row.cells[3].textContent.trim();document.getElementById('pass-edit-start').value=row.cells[4].textContent.trim();document.getElementById('pass-edit-end').value=row.cells[5].textContent.trim();document.getElementById('pass-edit-fee').value=parseFloat(row.cells[6].textContent.replace('¥',''));document.getElementById('pass-edit-active').checked=row.cells[7].textContent.includes('有效');}
     } else {
-        document.getElementById('pass-edit-plate').value='';document.getElementById('pass-edit-type').value='月卡';document.getElementById('pass-edit-start').value=new Date().toISOString().split('T')[0];const e=new Date();e.setDate(e.getDate()+30);document.getElementById('pass-edit-end').value=e.toISOString().split('T')[0];document.getElementById('pass-edit-fee').value='300';document.getElementById('pass-edit-active').checked=true;
+        document.getElementById('pass-edit-plate').value='';document.getElementById('pass-edit-type').value='月卡';document.getElementById('pass-edit-pname').value='';document.getElementById('pass-edit-start').value=new Date().toISOString().split('T')[0];const e=new Date();e.setDate(e.getDate()+30);document.getElementById('pass-edit-end').value=e.toISOString().split('T')[0];document.getElementById('pass-edit-fee').value='300';document.getElementById('pass-edit-active').checked=true;
     }
     showModal('pass-modal');
 }
 async function savePass() {
     const id=document.getElementById('edit-pass-id').value;
-    const body={license_plate:document.getElementById('pass-edit-plate').value.trim(),pass_type:document.getElementById('pass-edit-type').value.trim(),start_date:document.getElementById('pass-edit-start').value,end_date:document.getElementById('pass-edit-end').value,fee:parseFloat(document.getElementById('pass-edit-fee').value)};
+    const body={license_plate:document.getElementById('pass-edit-plate').value.trim(),pass_type:document.getElementById('pass-edit-type').value.trim(),P_name:document.getElementById('pass-edit-pname').value.trim(),start_date:document.getElementById('pass-edit-start').value,end_date:document.getElementById('pass-edit-end').value,fee:parseFloat(document.getElementById('pass-edit-fee').value)};
     let r;
     if(id) r=await put('/api/parking/monthly-passes/'+id,body);
     else r=await post('/api/parking/monthly-passes',body);
-    if(r&&r.ok){hideModal('pass-modal');showSuccess('alert-box','月卡已保存');loadPasses();} else alert(r?.data?.error||'保存失败');
+    if(r&&r.ok){hideModal('pass-modal');showSuccess('alert-box','套餐已保存');loadPasses();} else alert(r?.data?.error||'保存失败');
 }
 
 // ========== Vehicle Management ==========
@@ -318,7 +320,7 @@ document.addEventListener('click',function(e){
 
 async function deleteUser(id) { if(!confirm('确定删除用户(ID:'+id+')？'))return; const r=await del('/api/user/'+id); if(r&&r.ok){showSuccess('alert-box','已删除');loadUsers();} else showError('alert-box',r?.data?.error||'删除失败'); }
 async function deletePlan(id) { if(!confirm('确定删除此套餐？'))return; const r=await del('/api/pass-plans/'+id); if(r&&r.ok){showSuccess('alert-box','已删除');loadPlans();} else showError('alert-box','删除失败'); }
-async function deactivatePass(id) { if(!confirm('确定停用此月卡？停用后该车牌恢复收费。'))return; const r=await del('/api/parking/monthly-passes/'+id); if(r&&r.ok){showSuccess('alert-box','月卡已停用');loadPasses();} else showError('alert-box','停用失败'); }
+async function deactivatePass(id) { if(!confirm('确定停用此套餐？停用后该车牌恢复收费。'))return; const r=await del('/api/parking/monthly-passes/'+id); if(r&&r.ok){showSuccess('alert-box','套餐已停用');loadPasses();} else showError('alert-box','停用失败'); }
 async function removeBlacklist(id) { if(!confirm('确定移除？'))return; const r=await del('/api/blacklist/'+id); if(r&&r.ok){showSuccess('alert-box','已移除');loadBlacklist();} }
 
 async function loadInterceptions() {
@@ -512,6 +514,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== Parking Fee (Task D) ==========
+async function loadFeeUsers() {
+    const res = await get('/api/user/list');
+    const sel = document.getElementById('fee-user-id');
+    if (!res || !res.ok || !sel) return;
+    sel.innerHTML = '<option value="">选择用户...</option>' + res.data.users.map(u =>
+        `<option value="${u.id}">${escapeHtml(u.username)} (${roleLabel(u.role)}) - ¥${parseFloat(u.balance||0).toFixed(2)}</option>`
+    ).join('');
+}
+
 async function calculateParkingFee() {
     const userId = document.getElementById('fee-user-id').value;
     const plate = document.getElementById('fee-plate').value.trim();
@@ -528,9 +539,16 @@ async function calculateParkingFee() {
     if (userId) {
         const bal = await get('/api/balance/' + userId);
         if (bal && bal.ok) document.getElementById('show-balance').textContent = parseFloat(bal.data.balance).toFixed(2);
-        // Check monthly pass
-        const passRes = await get('/api/balance/my');
+
+        // Check monthly pass for target user and plate
         document.getElementById('show-pass').textContent = '查询中...';
+        const passRes = await get('/api/parking/monthly-passes?user_id=' + userId + '&plate=' + encodeURIComponent(plate));
+        if (passRes && passRes.ok && passRes.data.passes && passRes.data.passes.length > 0) {
+            const p = passRes.data.passes[0];
+            document.getElementById('show-pass').textContent = p.pass_type + ' (到期: ' + p.end_date + ')';
+        } else {
+            document.getElementById('show-pass').textContent = '无有效月卡';
+        }
     }
 }
 async function doParkingDeduct() {
@@ -538,7 +556,7 @@ async function doParkingDeduct() {
     const plate = document.getElementById('fee-plate').value.trim();
     const inTime = document.getElementById('fee-in-time').value;
     const outTime = document.getElementById('fee-out-time').value;
-    if (!userId || !plate || !inTime || !outTime) { showError('parking-alert', '请填写完整信息'); return; }
+    if (!userId || !plate || !inTime || !outTime) { showError('parking-alert', '请选择用户并填写完整信息'); return; }
     const inTs = Math.floor(new Date(inTime).getTime() / 1000);
     const outTs = Math.floor(new Date(outTime).getTime() / 1000);
     const r = await post('/api/balance/parking-deduct', { user_id: userId, license_plate: plate, in_time: inTs, out_time: outTs });

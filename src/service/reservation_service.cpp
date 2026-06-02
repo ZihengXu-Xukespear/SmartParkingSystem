@@ -82,7 +82,8 @@ bool ReservationService::create(const std::string& plate, const std::string& P_n
 
     bool hasPass = false;
     sql = "SELECT COUNT(*) FROM MONTHLY_PASS WHERE license_plate=" + quote(mysql, plate) +
-        " AND is_active=1 AND start_date <= CURDATE() AND end_date >= CURDATE()";
+        " AND is_active=1 AND start_date <= CURDATE() AND end_date >= CURDATE()"
+        " AND P_name=" + quote(mysql, P_name);
     if (mysql_query(mysql, sql.c_str()) == 0) {
         MYSQL_RES* pr = mysql_store_result(mysql);
         if (pr) { MYSQL_ROW prow = mysql_fetch_row(pr); hasPass = (prow && std::stoi(prow[0]) > 0); mysql_free_result(pr); }
