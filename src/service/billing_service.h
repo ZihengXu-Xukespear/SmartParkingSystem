@@ -21,7 +21,7 @@ public:
     double calculateParkingFee(time_t inTime, time_t outTime, std::string& ruleDesc);
 
     // ����û��¿��Ƿ�����Ч���ڣ���Ʒѣ�
-    bool checkMonthlyPassValid(int userId, const std::string& plate, std::string& passInfo);
+    bool checkMonthlyPassValid(int userId, const std::string& plate, time_t inTime, time_t outTime, std::string& passInfo);
 
     std::vector<MonthlyPass> getMonthlyPasses(int userId);
 

@@ -129,7 +129,8 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
         if (!BaseController::isAuthenticated(req))
             return BaseController::errorResponse(401, "请先登录");
         auto auth = BaseController::authenticate(req);
-        int userId = auth.first;
+        int operatorId = auth.first;
+        std::string operatorRole = auth.second;
 
         // 解析请求体
         auto body = BaseController::parseBody(req);
@@ -140,13 +141,20 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
         if (!body.has("in_time") || !body.has("out_time") || !body.has("license_plate"))
             return BaseController::errorResponse(400, "缺少必要参数：in_time/out_time/license_plate");
 
+        // 如果请求体中指定了 user_id，则使用指定用户（管理员替用户扣费场景）
+        int userId = operatorId;
+        if (body.has("user_id")) {
+            int bodyUserId = body["user_id"].i();
+            if (bodyUserId > 0) userId = bodyUserId;
+        }
+
         time_t inTime = static_cast<time_t>(body["in_time"].i());
         time_t outTime = static_cast<time_t>(body["out_time"].i());
         std::string plate = body["license_plate"].s();
 
-        // 1. 先检查月卡是否有效
+        // 1. 检查月卡是否覆盖该停车时间段
         std::string passInfo;
-        bool hasValidPass = BillingService::instance().checkMonthlyPassValid(userId, plate, passInfo);
+        bool hasValidPass = BillingService::instance().checkMonthlyPassValid(userId, plate, inTime, outTime, passInfo);
         if (hasValidPass) {
             // 有有效月卡，免扣费，直接返回成功
             crow::json::wvalue res;
@@ -176,14 +184,10 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
             return crow::response(400, res);
         }
 
-        // 4. 执行扣费
+        // 4. 执行扣费（使用与前端一致的计费规则）
         std::string error;
-        bool deductSuccess = BalanceService::instance().parkingDeduct(
-            userId,
-            inTime,
-            outTime,
-            BillingService::instance().getActiveRule().hourly_rate,
-            error
+        bool deductSuccess = BalanceService::instance().deduct(
+            userId, fee, "parking", "停车计费 " + plate, error
         );
         if (!deductSuccess) {
             return BaseController::errorResponse(400, error);

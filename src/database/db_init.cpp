@@ -173,6 +173,15 @@ bool DBInit::createTables(const AppConfig& cfg) {
         if (brRow && std::stoi(brRow[0]) > 0) hasBillingRules = true;
         mysql_free_result(brRes);
     }
+
+    // Ensure parking lots exist BEFORE seeding billing rules and pass plans
+    std::string parking_sql = "INSERT IGNORE INTO PARKING_LOT (P_name,P_total_count,P_current_count,P_reserve_count,P_fee) VALUES ('" +
+        cfg.parking_name + "'," + std::to_string(cfg.capacity) + ",0,0," + std::to_string(cfg.fee) + ")";
+    mysql_query(mysql, parking_sql.c_str());
+    mysql_query(mysql,
+        "INSERT IGNORE INTO PARKING_LOT (P_name,P_total_count,P_current_count,P_reserve_count,P_fee) VALUES "
+        "('停车场2',20,0,0,5.00)");
+
     if (!hasBillingRules) {
         const char* billingSQL =
             "INSERT INTO BILLING_RULE (rule_name,rule_type,free_minutes,hourly_rate,max_daily_fee,description,is_active,P_name) VALUES "
@@ -224,15 +233,6 @@ bool DBInit::createTables(const AppConfig& cfg) {
             mysql_free_result(lotRes2);
         }
     }
-
-    std::string parking_sql = "INSERT IGNORE INTO PARKING_LOT (P_name,P_total_count,P_current_count,P_reserve_count,P_fee) VALUES ('" +
-        cfg.parking_name + "'," + std::to_string(cfg.capacity) + ",0,0," + std::to_string(cfg.fee) + ")";
-    mysql_query(mysql, parking_sql.c_str());
-
-    // Second parking lot (20-spot ring layout)
-    mysql_query(mysql,
-        "INSERT IGNORE INTO PARKING_LOT (P_name,P_total_count,P_current_count,P_reserve_count,P_fee) VALUES "
-        "('停车场2',20,0,0,5.00)");
 
     mysql_query(mysql, "DROP TRIGGER IF EXISTS after_reservation_insert");
     mysql_query(mysql,

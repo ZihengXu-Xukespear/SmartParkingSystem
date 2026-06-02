@@ -127,23 +127,24 @@ int main() {
     });
 
     CROW_ROUTE(app, "/api/init/database").methods("POST"_method)([configPath](const crow::request& req) {
-        if (AppConfig::instance().initialized) {
+        AppConfig& cfg = AppConfig::instance();
+        if (cfg.initialized) {
             if (!BaseController::isRoot(req))
                 return BaseController::errorResponse(403, "系统已初始化，只有管理员可以重新初始化");
+            // Reinit: use saved config, no body required
+        } else {
+            auto body = crow::json::load(req.body);
+            if (!body) return crow::response(400, "{\"error\":\"Invalid JSON\"}");
+            cfg.host = body["host"].s();
+            cfg.port = body["port"].i();
+            cfg.database = body["database"].s();
+            cfg.user = body["user"].s();
+            cfg.password = body["password"].s();
+            cfg.parking_name = body["parking_name"].s();
+            cfg.fee = body["fee"].d();
+            cfg.capacity = body["capacity"].i();
+            if (body.has("server_port")) cfg.server_port = body["server_port"].i();
         }
-        auto body = crow::json::load(req.body);
-        if (!body) return crow::response(400, "{\"error\":\"Invalid JSON\"}");
-
-        AppConfig& cfg = AppConfig::instance();
-        cfg.host = body["host"].s();
-        cfg.port = body["port"].i();
-        cfg.database = body["database"].s();
-        cfg.user = body["user"].s();
-        cfg.password = body["password"].s();
-        cfg.parking_name = body["parking_name"].s();
-        cfg.fee = body["fee"].d();
-        cfg.capacity = body["capacity"].i();
-        if (body.has("server_port")) cfg.server_port = body["server_port"].i();
 
         if (!DBInit::createDatabase(cfg))
             return crow::response(400, "{\"error\":\"创建数据库失败，请检查连接参数\"}");
