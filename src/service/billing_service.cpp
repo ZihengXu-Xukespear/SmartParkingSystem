@@ -242,14 +242,23 @@ double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::s
 
 // ===================== 【通用】检查套餐：使用传入的 userId =====================
 // ===================== 【检查所有套餐，而不是只查一个】 =====================
-bool BillingService::checkMonthlyPassValid(int userId, const std::string& plate, std::string& passInfo) {
+bool BillingService::checkMonthlyPassValid(int userId, const std::string& plate, time_t inTime, time_t outTime, std::string& passInfo) {
     auto conn = getConnection();
     if (!conn) return false;
 
-    std::string sql = "SELECT pass_type, end_date FROM MONTHLY_PASS "
+    // Convert parking out_time to date string for comparison with pass validity period
+    char outDateBuf[32];
+    struct tm* tmOut = localtime(&outTime);
+    strftime(outDateBuf, sizeof(outDateBuf), "%Y-%m-%d", tmOut);
+    std::string outDate(outDateBuf);
+
+    // Check if any active pass covers the parking out_time:
+    // pass must be active, and the parking date must fall within [start_date, end_date]
+    std::string sql = "SELECT pass_type, start_date, end_date FROM MONTHLY_PASS "
         "WHERE user_id = " + std::to_string(userId) +
-        " AND license_plate = '" + plate + "' "
-        "AND is_active = 1 AND end_date >= NOW()";
+        " AND license_plate = " + quote(conn->get(), plate) +
+        " AND is_active = 1"
+        " AND '" + outDate + "' BETWEEN start_date AND end_date";
 
     if (mysql_query(conn->get(), sql.c_str()) != 0) return false;
     MYSQL_RES* res = mysql_store_result(conn->get());
@@ -259,10 +268,9 @@ bool BillingService::checkMonthlyPassValid(int userId, const std::string& plate,
     passInfo = "";
     MYSQL_ROW row;
 
-    // 遍历所有有效套餐
     while ((row = mysql_fetch_row(res))) {
         hasValid = true;
-        passInfo += std::string(row[0]) + "（至" + std::string(row[1]) + "）";
+        passInfo += std::string(row[0]) + "（" + std::string(row[1]) + " ~ " + std::string(row[2]) + "）";
     }
 
     mysql_free_result(res);

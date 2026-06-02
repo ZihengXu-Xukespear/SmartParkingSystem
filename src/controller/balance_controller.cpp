@@ -152,9 +152,9 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
         time_t outTime = static_cast<time_t>(body["out_time"].i());
         std::string plate = body["license_plate"].s();
 
-        // 1. 先检查月卡是否有效
+        // 1. 检查月卡是否覆盖该停车时间段
         std::string passInfo;
-        bool hasValidPass = BillingService::instance().checkMonthlyPassValid(userId, plate, passInfo);
+        bool hasValidPass = BillingService::instance().checkMonthlyPassValid(userId, plate, inTime, outTime, passInfo);
         if (hasValidPass) {
             // 有有效月卡，免扣费，直接返回成功
             crow::json::wvalue res;
@@ -184,14 +184,10 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
             return crow::response(400, res);
         }
 
-        // 4. 执行扣费
+        // 4. 执行扣费（使用与前端一致的计费规则）
         std::string error;
-        bool deductSuccess = BalanceService::instance().parkingDeduct(
-            userId,
-            inTime,
-            outTime,
-            BillingService::instance().getActiveRule().hourly_rate,
-            error
+        bool deductSuccess = BalanceService::instance().deduct(
+            userId, fee, "parking", "停车计费 " + plate, error
         );
         if (!deductSuccess) {
             return BaseController::errorResponse(400, error);
