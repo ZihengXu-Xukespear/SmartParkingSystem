@@ -129,7 +129,8 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
         if (!BaseController::isAuthenticated(req))
             return BaseController::errorResponse(401, "请先登录");
         auto auth = BaseController::authenticate(req);
-        int userId = auth.first;
+        int operatorId = auth.first;
+        std::string operatorRole = auth.second;
 
         // 解析请求体
         auto body = BaseController::parseBody(req);
@@ -139,6 +140,13 @@ void BalanceController::registerRoutes(crow::SimpleApp& app) {
         // 获取参数：入场时间、离场时间、车牌
         if (!body.has("in_time") || !body.has("out_time") || !body.has("license_plate"))
             return BaseController::errorResponse(400, "缺少必要参数：in_time/out_time/license_plate");
+
+        // 如果请求体中指定了 user_id，则使用指定用户（管理员替用户扣费场景）
+        int userId = operatorId;
+        if (body.has("user_id")) {
+            int bodyUserId = body["user_id"].i();
+            if (bodyUserId > 0) userId = bodyUserId;
+        }
 
         time_t inTime = static_cast<time_t>(body["in_time"].i());
         time_t outTime = static_cast<time_t>(body["out_time"].i());

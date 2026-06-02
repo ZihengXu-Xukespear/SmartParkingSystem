@@ -223,7 +223,24 @@ void ParkingController::registerRoutes(crow::SimpleApp& app) {
             // if (!BaseController::isAuthenticated(req))
             //     return BaseController::errorResponse(401, "请先登录");
 
-            auto passes = BillingService::instance().getMonthlyPasses();
+            std::vector<MonthlyPass> passes;
+            auto userIdParam = req.url_params.get("user_id");
+            if (userIdParam) {
+                int userId = std::stoi(userIdParam);
+                passes = BillingService::instance().getMonthlyPasses(userId);
+            } else {
+                passes = BillingService::instance().getMonthlyPasses();
+            }
+
+            // Optional plate filter
+            auto plateParam = req.url_params.get("plate");
+            if (plateParam) {
+                std::string filterPlate(plateParam);
+                passes.erase(std::remove_if(passes.begin(), passes.end(),
+                    [&filterPlate](const MonthlyPass& p) { return p.license_plate != filterPlate; }),
+                    passes.end());
+            }
+
             crow::json::wvalue res;
             res["passes"] = BaseController::toJsonArray(passes);
             return crow::response(res);

@@ -31,6 +31,7 @@ function switchTab(tab, ev) {
     else if(tab==='notice') loadBulletins();
     else if(tab==='messages') { loadConversations(); if(_selectedMsgUserId>0)selectConversation(_selectedMsgUserId); }
     else if(tab==='settings') { /* static content, no loading needed */ }
+    else if(tab==='parking-fee') { loadFeeUsers(); }
 }
 
 async function loadBillingLotSelector() {
@@ -513,6 +514,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ========== Parking Fee (Task D) ==========
+async function loadFeeUsers() {
+    const res = await get('/api/user/list');
+    const sel = document.getElementById('fee-user-id');
+    if (!res || !res.ok || !sel) return;
+    sel.innerHTML = '<option value="">选择用户...</option>' + res.data.users.map(u =>
+        `<option value="${u.id}">${escapeHtml(u.username)} (${roleLabel(u.role)}) - ¥${parseFloat(u.balance||0).toFixed(2)}</option>`
+    ).join('');
+}
+
 async function calculateParkingFee() {
     const userId = document.getElementById('fee-user-id').value;
     const plate = document.getElementById('fee-plate').value.trim();
@@ -529,9 +539,16 @@ async function calculateParkingFee() {
     if (userId) {
         const bal = await get('/api/balance/' + userId);
         if (bal && bal.ok) document.getElementById('show-balance').textContent = parseFloat(bal.data.balance).toFixed(2);
-        // Check monthly pass
-        const passRes = await get('/api/balance/my');
+
+        // Check monthly pass for target user and plate
         document.getElementById('show-pass').textContent = '查询中...';
+        const passRes = await get('/api/parking/monthly-passes?user_id=' + userId + '&plate=' + encodeURIComponent(plate));
+        if (passRes && passRes.ok && passRes.data.passes && passRes.data.passes.length > 0) {
+            const p = passRes.data.passes[0];
+            document.getElementById('show-pass').textContent = p.pass_type + ' (到期: ' + p.end_date + ')';
+        } else {
+            document.getElementById('show-pass').textContent = '无有效月卡';
+        }
     }
 }
 async function doParkingDeduct() {
@@ -539,7 +556,7 @@ async function doParkingDeduct() {
     const plate = document.getElementById('fee-plate').value.trim();
     const inTime = document.getElementById('fee-in-time').value;
     const outTime = document.getElementById('fee-out-time').value;
-    if (!userId || !plate || !inTime || !outTime) { showError('parking-alert', '请填写完整信息'); return; }
+    if (!userId || !plate || !inTime || !outTime) { showError('parking-alert', '请选择用户并填写完整信息'); return; }
     const inTs = Math.floor(new Date(inTime).getTime() / 1000);
     const outTs = Math.floor(new Date(outTime).getTime() / 1000);
     const r = await post('/api/balance/parking-deduct', { user_id: userId, license_plate: plate, in_time: inTs, out_time: outTs });
