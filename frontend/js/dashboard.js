@@ -510,6 +510,81 @@ async function loadInterceptionCount() {
     }
 }
 
+// ========== Smart Report ==========
+async function showSmartReport() {
+    showModal('report-modal');
+    document.getElementById('report-date').textContent = '报告生成: ' + new Date().toLocaleString('zh-CN');
+    document.getElementById('report-body').innerHTML = '<div style="color:rgba(255,255,255,0.6);padding:40px 0;">⏳ 分析中...</div>';
+
+    const [statusRes, summaryRes, parkedRes, hourlyRes] = await Promise.all([
+        get('/api/parking/status'),
+        get('/api/report/summary'),
+        get('/api/vehicle/parked'),
+        get('/api/report/hourly')
+    ]);
+
+    const total = statusRes?.data?.P_total_count || 100;
+    const occupied = statusRes?.data?.P_current_count || 0;
+    const available = statusRes?.data?.P_available_count || 0;
+    const occRate = total > 0 ? (occupied / total * 100).toFixed(0) : '0';
+    const todayIncome = parseFloat(summaryRes?.data?.today_income || 0).toFixed(2);
+    const monthIncome = parseFloat(summaryRes?.data?.month_income || 0).toFixed(0);
+    const parkedCount = parkedRes?.data?.records?.length || 0;
+
+    // Find peak hour
+    let peakHour = '-', peakCount = 0;
+    if (hourlyRes?.data?.hours && hourlyRes.data.counts) {
+        for (let i = 0; i < hourlyRes.data.hours.length; i++) {
+            if (hourlyRes.data.counts[i] > peakCount) {
+                peakCount = hourlyRes.data.counts[i];
+                peakHour = hourlyRes.data.hours[i] + '时-' + (parseInt(hourlyRes.data.hours[i]) + 1) + '时';
+            }
+        }
+    }
+
+    const avgParked = occupied > 0 ? '约' + Math.round(parkedCount / Math.max(occupied, 1)) : '-';
+    const efficiency = available >= total * 0.3 ? '充裕' : available > 0 ? '紧张' : '已满';
+
+    setTimeout(() => {
+        document.getElementById('report-body').innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center;">
+                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">当前占用率</div>
+                    <div style="font-size:42px;font-weight:700;">${occRate}%</div>
+                    <div style="font-size:12px;opacity:0.7;">${occupied}/${total} 车位</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">今日收入</div>
+                    <div style="font-size:42px;font-weight:700;">¥${todayIncome}</div>
+                    <div style="font-size:12px;opacity:0.7;">本月 ¥${monthIncome}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">高峰时段</div>
+                    <div style="font-size:42px;font-weight:700;">${peakHour.split('-')[0]}</div>
+                    <div style="font-size:12px;opacity:0.7;">至 ${peakHour.split('-')[1]||'--'}</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">在场车辆</div>
+                    <div style="font-size:42px;font-weight:700;">${parkedCount}</div>
+                    <div style="font-size:12px;opacity:0.7;">车位状态: ${efficiency}</div>
+                </div>
+            </div>
+            <div style="margin-top:16px;background:rgba(255,255,255,0.1);border-radius:12px;padding:16px;font-size:13px;opacity:0.8;text-align:left;">
+                <div style="margin-bottom:8px;">📌 运营摘要</div>
+                <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>车流量高峰</span><span>${peakHour}（峰值 ${peakCount} 辆）</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>平均每车占用</span><span>${avgParked} 车位</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                    <span>推荐建议</span><span>${occRate > 80 ? '考虑增加扩容或引导错峰' : occRate > 50 ? '运营正常' : '可加大推广吸引客流'}</span>
+                </div>
+            </div>
+        `;
+    }, 300);
+}
+
 async function loadHeatmap() {
     const container = document.getElementById('heatmap-chart');
     if (!container) return;
