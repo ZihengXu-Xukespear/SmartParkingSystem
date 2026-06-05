@@ -548,22 +548,22 @@ async function showSmartReport() {
     setTimeout(() => {
         document.getElementById('report-body').innerHTML = `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center;">
-                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
                     <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">当前占用率</div>
                     <div style="font-size:42px;font-weight:700;">${occRate}%</div>
                     <div style="font-size:12px;opacity:0.7;">${occupied}/${total} 车位</div>
                 </div>
-                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
                     <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">今日收入</div>
                     <div style="font-size:42px;font-weight:700;">¥${todayIncome}</div>
                     <div style="font-size:12px;opacity:0.7;">本月 ¥${monthIncome}</div>
                 </div>
-                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
                     <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">高峰时段</div>
                     <div style="font-size:42px;font-weight:700;">${peakHour.split('-')[0]}</div>
                     <div style="font-size:12px;opacity:0.7;">至 ${peakHour.split('-')[1]||'--'}</div>
                 </div>
-                <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:16px;">
+                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
                     <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">在场车辆</div>
                     <div style="font-size:42px;font-weight:700;">${parkedCount}</div>
                     <div style="font-size:12px;opacity:0.7;">车位状态: ${efficiency}</div>

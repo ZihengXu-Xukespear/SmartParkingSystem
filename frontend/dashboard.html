@@ -60,7 +60,7 @@
         <!-- Main Content -->
         <div class="main-content">
             <div class="page-header">
-                <h1>主面板</h1>
+                <h1>主面板 <button class="btn btn-primary" onclick="showSmartReport()" style="font-size:13px;padding:4px 16px;vertical-align:middle;margin-left:12px;">📊 运营报告</button></h1>
                 <select id="parking-selector" onchange="onParkingChange()" style="float:right;margin-top:-30px;padding:6px 12px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px"></select>
                 <p>停车场实时状态与管理操作</p>
             </div>
@@ -238,7 +238,7 @@
 
                     <!-- Hourly Heatmap -->
                     <div class="card" id="card-heatmap">
-                        <div class="card-title">近30天时段热度 <button class="btn btn-default btn-xs" onclick="showSmartReport()" style="float:right;font-size:11px;">📊 运营报告</button></div>
+                        <div class="card-title">近30天时段热度</div>
                         <div id="heatmap-chart" style="height:90px;padding:4px 0;"><p style="color:#999;text-align:center;">加载中...</p></div>
                         <div style="display:flex;justify-content:space-between;font-size:10px;color:#bbb;padding:0 4px;margin-top:-4px;">
                             <span>0时</span><span>6时</span><span>12时</span><span>18时</span><span>24时</span>
@@ -312,8 +312,18 @@
     </div>
 
     <!-- Smart Report Modal -->
+    <style>
+        @keyframes reportFadeIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+        @keyframes reportCardIn { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .report-modal-in { animation:reportFadeIn 0.4s ease-out; }
+        .report-card-in { animation:reportCardIn 0.5s ease-out forwards; opacity:0; }
+        .report-card-in:nth-child(1) { animation-delay:0.1s; }
+        .report-card-in:nth-child(2) { animation-delay:0.2s; }
+        .report-card-in:nth-child(3) { animation-delay:0.3s; }
+        .report-card-in:nth-child(4) { animation-delay:0.4s; }
+    </style>
     <div class="modal-overlay" id="report-modal" style="z-index:1000;">
-        <div style="position:fixed;top:0;left:0;right:0;bottom:0;overflow-y:auto;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:20px;">
+        <div class="report-modal-in" style="position:fixed;top:0;left:0;right:0;bottom:0;overflow-y:auto;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);padding:20px;">
             <div style="max-width:560px;margin:0 auto;color:#fff;">
                 <div style="text-align:center;margin-bottom:24px;">
                     <div style="font-size:12px;letter-spacing:4px;opacity:0.7;margin-bottom:4px;">SMART PARKING</div>
