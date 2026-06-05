@@ -246,6 +246,18 @@ async function confirmPurchase() {
 const demoProvinces = ['京','沪','粤','苏','浙','鲁','川','渝','闽','皖','湘','鄂'];
 const demoLetters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 let demoRunning = false;
+let demoStop = false;
+
+function stopDemo() {
+    demoStop = true;
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏹ 演示已停止</span>';
+    document.getElementById('btn-stop-demo').style.display = 'none';
+    document.getElementById('btn-demo').textContent = '▶ 演示模式';
+    document.getElementById('btn-demo').disabled = false;
+    // Remove any glows
+    document.querySelectorAll('.demo-glow').forEach(el => el.classList.remove('demo-glow'));
+    document.querySelectorAll('.demo-glow-btn').forEach(el => el.classList.remove('demo-glow-btn'));
+}
 
 function randomPlate() {
     let plate = demoProvinces[Math.floor(Math.random() * demoProvinces.length)];
@@ -286,6 +298,7 @@ function simulateClick(el) {
 async function startDemo() {
     if (demoRunning) return;
     demoRunning = true;
+    demoStop = false;
     const btn = document.getElementById('btn-demo');
     const steps = document.getElementById('demo-steps');
     const oldText = btn.textContent;
@@ -293,6 +306,7 @@ async function startDemo() {
     btn.disabled = true;
     steps.style.display = 'block';
     document.getElementById('demo-hint').textContent = '';
+    document.getElementById('btn-stop-demo').style.display = 'inline-block';
 
     const plate = randomPlate();
     const input = document.getElementById('plate-input');
@@ -301,11 +315,13 @@ async function startDemo() {
     setDot(0, 'active');
     glow(input, `正在生成车牌... ${plate}`);
     await new Promise(r => setTimeout(r, 1200));
+    if (demoStop) { cleanupDemo(); return; }
     input.value = plate;
     input.style.borderColor = '#52c41a';
     input.style.transition = 'border-color 0.3s';
     setDot(0, 'done');
     await new Promise(r => setTimeout(r, 400));
+    if (demoStop) { cleanupDemo(); return; }
 
     // ── Step 2: Click check-in ──
     const btnIn = document.getElementById('btn-checkin');
@@ -314,14 +330,16 @@ async function startDemo() {
     input.style.borderColor = '';
     glow(btnIn, '点击"快速入库"按钮');
     await new Promise(r => setTimeout(r, 1000));
+    if (demoStop) { cleanupDemo(); return; }
     simulateClick(btnIn);
     document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">⏳ 正在请求入库...</span>';
     let res = await post('/api/vehicle/checkin', { license_plate: plate, billing_type: 'standard' });
-    if (!res || !res.ok) { setDot(1, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 入库失败: ' + (res?.data?.error||'') + '</span>'; demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
+    if (!res || !res.ok) { setDot(1, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 入库失败: ' + (res?.data?.error||'') + '</span>'; cleanupDemo(); return; }
     unglow(btnIn);
     setDot(1, 'done');
     document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 入库成功！车辆已入场</span>';
     await new Promise(r => setTimeout(r, 800));
+    if (demoStop) { cleanupDemo(); return; }
 
     // ── Step 3: Parking countdown ──
     setDot(2, 'active');
@@ -329,20 +347,23 @@ async function startDemo() {
     for (let i = 3; i > 0; i--) {
         document.getElementById('demo-hint').innerHTML = `<span style="color:#1890ff;">⏱ 停车计时 ${i}秒...</span>`;
         await new Promise(r => setTimeout(r, 1000));
+        if (demoStop) { cleanupDemo(); return; }
     }
     setDot(2, 'done');
     document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 停车结束</span>';
     await new Promise(r => setTimeout(r, 400));
+    if (demoStop) { cleanupDemo(); return; }
 
     // ── Step 4: Click check-out ──
     const btnOut = document.getElementById('btn-checkout');
     setDot(3, 'active');
     glow(btnOut, '点击"车辆出库"按钮', '#ff4d4f');
     await new Promise(r => setTimeout(r, 1000));
+    if (demoStop) { cleanupDemo(); return; }
     simulateClick(btnOut);
     document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏳ 正在出库计费...</span>';
     res = await post('/api/vehicle/checkout', { license_plate: plate });
-    if (!res || !res.ok) { setDot(3, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 出库失败: ' + (res?.data?.error||'') + '</span>'; demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
+    if (!res || !res.ok) { setDot(3, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 出库失败: ' + (res?.data?.error||'') + '</span>'; cleanupDemo(); return; }
     const data = res.data;
     const fee = data.fee || 0;
     unglow(btnOut);
@@ -365,10 +386,20 @@ async function startDemo() {
     // Sidebar tour
     await new Promise(r => setTimeout(r, 1200));
     hideModal('receipt-modal');
-    await sidebarTour();
+    if (!demoStop) await sidebarTour();
+    cleanupDemo();
+}
+
+function cleanupDemo() {
+    document.getElementById('btn-stop-demo').style.display = 'none';
     demoRunning = false;
-    btn.textContent = oldText;
-    btn.disabled = false;
+    document.getElementById('btn-demo').textContent = '▶ 演示模式';
+    document.getElementById('btn-demo').disabled = false;
+    document.querySelectorAll('.demo-glow, .demo-glow-btn').forEach(el => {
+        el.classList.remove('demo-glow', 'demo-glow-btn');
+        el.style.borderColor = '';
+        el.style.transform = '';
+    });
 }
 
 // ========== Sidebar Tour ==========
@@ -387,6 +418,7 @@ async function sidebarTour() {
     const hint = document.getElementById('demo-hint');
     const steps = document.getElementById('demo-steps');
     for (const page of tourPages) {
+        if (demoStop) return;
         const el = document.getElementById(page.id);
         if (!el) continue;
         el.classList.add('demo-glow');
@@ -411,8 +443,10 @@ async function sidebarTour() {
         }
         await new Promise(r => setTimeout(r, 300));
     }
-    hint.innerHTML = '<span style="color:#52c41a;">✅ 系统导览结束，你可以自由探索各个功能页面了</span>';
-    steps.style.display = 'none';
+    if (!demoStop) {
+        hint.innerHTML = '<span style="color:#52c41a;">✅ 系统导览结束，你可以自由探索各个功能页面了</span>';
+        steps.style.display = 'none';
+    }
 }
 
 async function loadBulletin() {
