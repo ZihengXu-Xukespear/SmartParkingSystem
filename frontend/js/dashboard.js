@@ -388,6 +388,72 @@ async function loadHeatmap() {
     });
 }
 
+// ========== Smart Plan Recommendation ==========
+async function comparePlans() {
+    const hours = parseInt(document.getElementById('compare-hours').value) || 3;
+    const container = document.getElementById('compare-result');
+
+    // Fetch billing rules and pass plans in parallel
+    const [billingRes, plansRes] = await Promise.all([
+        get('/api/parking/billing-rules'),
+        get('/api/pass-plans')
+    ]);
+
+    if (!billingRes || !billingRes.ok) { container.innerHTML = '<span style="color:#ff4d4f;">加载计费规则失败</span>'; return; }
+
+    // Get the active standard billing rule
+    const rules = billingRes.data.rules || [];
+    const standard = rules.find(r => r.is_active && (r.rule_type === 'standard' || r.rule_type === 'tiered'));
+    const hourlyRate = standard ? parseFloat(standard.hourly_rate) : 5.0;
+    const freeMin = standard ? (parseInt(standard.free_minutes) || 30) : 30;
+    const maxDaily = standard ? (parseFloat(standard.max_daily_fee) || 0) : 0;
+
+    // Calculate standard fee
+    let standardFee = 0;
+    if (hours * 60 > freeMin) {
+        const billableHours = Math.ceil((hours * 60 - freeMin) / 60);
+        standardFee = billableHours * hourlyRate;
+        if (maxDaily > 0 && standardFee > maxDaily) standardFee = maxDaily;
+    }
+    standardFee = Math.round(standardFee * 100) / 100;
+
+    // Get pass plans
+    const plans = (plansRes && plansRes.ok) ? (plansRes.data.plans || []) : [];
+    const planResults = plans.filter(p => p.is_active).map(p => {
+        const dailyCost = parseFloat(p.price) / parseInt(p.duration_days);
+        return {
+            name: p.plan_name,
+            price: parseFloat(p.price),
+            days: parseInt(p.duration_days),
+            dailyCost: dailyCost,
+            worthIt: dailyCost < hourlyRate * hours / 24 // rough: if daily cost < standard fee per day
+        };
+    });
+
+    let html = `<div style="background:#f5f5f5;border-radius:6px;padding:10px;">`;
+    html += `<div style="font-size:13px;font-weight:600;margin-bottom:6px;">停 ${hours} 小时方案对比</div>`;
+
+    // Standard billing
+    html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;">
+        <span>临时计费 (${standardFee > 0 ? '免费' + freeMin + '分钟后' : ''} ¥${hourlyRate}/时)</span>
+        <strong style="color:${standardFee > 0 ? '#ff4d4f' : '#52c41a'};">¥${standardFee.toFixed(2)}</strong>
+    </div>`;
+
+    // Pass plans
+    planResults.forEach(p => {
+        const isBest = standardFee > 0 && p.dailyCost < (standardFee / (hours/24 > 1 ? hours/24 : 1));
+        html += `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;${isBest?'background:#fff7e6;':''}">
+            <span>${p.name} (${p.days}天 ¥${p.price}) ${isBest ? '⭐' : ''}</span>
+            <strong style="color:#1890ff;">¥${(p.price/p.days * Math.ceil(hours/24)).toFixed(2)}/天</strong>
+        </div>`;
+    });
+
+    html += `<div style="margin-top:8px;font-size:12px;color:#999;text-align:center;">
+        临时计费按实际停车时长计算，套餐按日均价估算</div>`;
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
 async function handleCheckIn() {
     const plate = document.getElementById('plate-input').value.trim();
     const billingSel = document.getElementById('billing-type');
