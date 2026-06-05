@@ -253,12 +253,33 @@ function randomPlate() {
     return plate;
 }
 
-function demoStep(msg, status) {
-    const el = document.getElementById('demo-steps');
-    if (!el) return;
-    const icons = { running: '⏳', done: '✅', fail: '❌' };
-    el.innerHTML += `<div style="padding:4px 0;font-size:13px;color:${status==='fail'?'#ff4d4f':status==='done'?'#52c41a':'#333'}">${icons[status]||'•'} ${msg}</div>`;
-    el.scrollTop = el.scrollHeight;
+function setDot(idx, status) {
+    const dots = document.querySelectorAll('.demo-step-dot');
+    const colors = { active: '#1890ff', done: '#52c41a', fail: '#ff4d4f' };
+    dots.forEach((d, i) => {
+        if (i < idx) { d.style.background = '#52c41a'; d.style.color = '#fff'; }
+        else if (i === idx) { d.style.background = colors[status] || '#1890ff'; d.style.color = '#fff'; }
+        else { d.style.background = '#eee'; d.style.color = '#999'; }
+    });
+}
+
+function glow(el, hint, color) {
+    const c = color || '#1890ff';
+    el.classList.add('demo-glow');
+    el.style.borderColor = c;
+    document.getElementById('demo-hint').innerHTML = `<span style="color:${c};">👉 ${hint}</span>`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function unglow(el) {
+    el.classList.remove('demo-glow');
+    el.style.borderColor = '';
+}
+
+function simulateClick(el) {
+    el.style.transform = 'scale(0.95)';
+    el.style.transition = 'all 0.1s';
+    setTimeout(() => { el.style.transform = ''; }, 150);
 }
 
 async function startDemo() {
@@ -270,48 +291,87 @@ async function startDemo() {
     btn.textContent = '⏳ 演示中...';
     btn.disabled = true;
     steps.style.display = 'block';
-    steps.innerHTML = '';
+    document.getElementById('demo-hint').textContent = '';
 
     const plate = randomPlate();
-    demoStep(`生成随机车牌: ${plate}`, 'running');
+    const input = document.getElementById('plate-input');
 
-    // Step 2: Check-in
+    // ── Step 1: Fill plate ──
+    setDot(0, 'active');
+    glow(input, `正在生成车牌... ${plate}`);
+    await new Promise(r => setTimeout(r, 1200));
+    input.value = plate;
+    input.style.borderColor = '#52c41a';
+    input.style.transition = 'border-color 0.3s';
+    setDot(0, 'done');
+    await new Promise(r => setTimeout(r, 400));
+
+    // ── Step 2: Click check-in ──
+    const btnIn = document.getElementById('btn-checkin');
+    setDot(1, 'active');
+    unglow(input);
+    input.style.borderColor = '';
+    glow(btnIn, '点击"快速入库"按钮');
+    await new Promise(r => setTimeout(r, 1000));
+    simulateClick(btnIn);
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">⏳ 正在请求入库...</span>';
     let res = await post('/api/vehicle/checkin', { license_plate: plate, billing_type: 'standard' });
-    if (!res || !res.ok) { demoStep(`入库失败: ${res?.data?.error||'未知错误'}`, 'fail'); demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
-    demoStep(`🅿️ ${plate} 入库成功`, 'done');
+    if (!res || !res.ok) { setDot(1, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 入库失败: ' + (res?.data?.error||'') + '</span>'; demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
+    unglow(btnIn);
+    setDot(1, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 入库成功！车辆已入场</span>';
+    await new Promise(r => setTimeout(r, 800));
 
-    // Step 3: Simulate parking (3 seconds)
-    demoStep('⏱ 停车计时中... (模拟3秒)', 'running');
-    await new Promise(r => setTimeout(r, 3000));
+    // ── Step 3: Parking countdown ──
+    setDot(2, 'active');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">⏱ 车辆停放中...</span>';
+    for (let i = 3; i > 0; i--) {
+        document.getElementById('demo-hint').innerHTML = `<span style="color:#1890ff;">⏱ 停车计时 ${i}秒...</span>`;
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    setDot(2, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 停车结束</span>';
+    await new Promise(r => setTimeout(r, 400));
 
-    // Step 4: Check-out
+    // ── Step 4: Click check-out ──
+    const btnOut = document.getElementById('btn-checkout');
+    setDot(3, 'active');
+    glow(btnOut, '点击"车辆出库"按钮', '#ff4d4f');
+    await new Promise(r => setTimeout(r, 1000));
+    simulateClick(btnOut);
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏳ 正在出库计费...</span>';
     res = await post('/api/vehicle/checkout', { license_plate: plate });
-    if (!res || !res.ok) { demoStep(`出库失败: ${res?.data?.error||'未知错误'}`, 'fail'); demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
+    if (!res || !res.ok) { setDot(3, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 出库失败: ' + (res?.data?.error||'') + '</span>'; demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
     const data = res.data;
-    demoStep(`🚗 ${plate} 出库成功`, 'done');
+    const fee = data.fee || 0;
+    unglow(btnOut);
+    setDot(3, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 出库成功，费用: ¥' + parseFloat(fee).toFixed(2) + '</span>';
+    await new Promise(r => setTimeout(r, 600));
 
-    // Show receipt
+    // ── Step 5: Receipt ──
+    setDot(4, 'active');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">📄 正在生成电子小票...</span>';
     const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
     const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
     const duration = data.record ? data.record.duration : (data.duration || '');
-    const fee = data.fee || 0;
+    await new Promise(r => setTimeout(r, 600));
+    document.getElementById('receipt-plate').textContent = plate;
+    document.getElementById('receipt-in').textContent = formatDateTime(inTime);
+    document.getElementById('receipt-out').textContent = formatDateTime(outTime);
+    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-billing').textContent = '标准计费';
+    document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
+    showModal('receipt-modal');
+    setDot(4, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 演示完成！电子小票已生成</span>';
 
-    demoStep(`💰 费用: ¥${parseFloat(fee).toFixed(2)}`, 'done');
-    setTimeout(() => {
-        document.getElementById('receipt-plate').textContent = plate;
-        document.getElementById('receipt-in').textContent = formatDateTime(inTime);
-        document.getElementById('receipt-out').textContent = formatDateTime(outTime);
-        document.getElementById('receipt-duration').textContent = duration || '计算中...';
-        document.getElementById('receipt-billing').textContent = '标准计费';
-        document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
-        showModal('receipt-modal');
-        loadRecentRecords();
-        loadBalance();
-        loadParkedVehicles();
-        demoRunning = false;
-        btn.textContent = oldText;
-        btn.disabled = false;
-    }, 500);
+    loadRecentRecords();
+    loadBalance();
+    loadParkedVehicles();
+    demoRunning = false;
+    btn.textContent = oldText;
+    btn.disabled = false;
 }
 
 async function loadBulletin() {
