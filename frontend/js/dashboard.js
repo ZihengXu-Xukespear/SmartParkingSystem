@@ -585,6 +585,24 @@ async function showSmartReport() {
     }, 300);
 }
 
+async function checkHealth() {
+    const el = document.getElementById('health-status');
+    if (!el) return;
+    try {
+        const res = await get('/api/health');
+        if (res && res.ok && res.data.status === 'ok') {
+            el.innerHTML = '✅ 服务正常 · ' + (res.data.db_pool || '') + ' · v' + (res.data.version || '');
+            el.style.color = '#52c41a';
+        } else {
+            el.innerHTML = '⚠️ 服务异常';
+            el.style.color = '#faad14';
+        }
+    } catch (e) {
+        el.innerHTML = '❌ 连接失败';
+        el.style.color = '#ff4d4f';
+    }
+}
+
 async function loadHeatmap() {
     const container = document.getElementById('heatmap-chart');
     if (!container) return;
@@ -789,6 +807,8 @@ loadHeatmap();
 loadPrediction();
 loadInterceptionCount();
 loadParkedVehicles();
+checkHealth();
+setInterval(() => { checkHealth(); }, 30000);
 setInterval(() => { loadStatus(); }, 10000);
 setInterval(() => { loadPrediction(); loadInterceptionCount(); }, 30000);
 setInterval(() => { loadParkedVehicles(); }, 15000);

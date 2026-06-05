@@ -64,6 +64,13 @@
                 <select id="parking-selector" onchange="onParkingChange()" style="float:right;margin-top:-30px;padding:6px 12px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px"></select>
                 <p>停车场实时状态与管理操作</p>
             </div>
+            <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+                <a href="/checkin.html" class="btn btn-primary" style="font-size:13px;padding:6px 16px;">🅿️ 快速入库</a>
+                <a href="/vehicles.html" class="btn btn-default" style="font-size:13px;padding:6px 16px;">📋 车辆查询</a>
+                <a href="/parking.html" class="btn btn-default" style="font-size:13px;padding:6px 16px;">⚙️ 停车场设置</a>
+                <span style="flex:1;"></span>
+                <span id="health-status" style="font-size:12px;color:#999;padding:6px 0;">服务状态检测中...</span>
+            </div>
 
             <!-- Stats Cards -->
             <div class="stat-cards">
