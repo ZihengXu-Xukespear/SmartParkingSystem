@@ -241,6 +241,79 @@ async function confirmPurchase() {
     }
 }
 
+// ========== Demo Mode + Receipt ==========
+const demoProvinces = ['京','沪','粤','苏','浙','鲁','川','渝','闽','皖','湘','鄂'];
+const demoLetters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+let demoRunning = false;
+
+function randomPlate() {
+    let plate = demoProvinces[Math.floor(Math.random() * demoProvinces.length)];
+    plate += demoLetters[Math.floor(Math.random() * demoLetters.length)];
+    for (let i = 0; i < 5; i++) plate += Math.floor(Math.random() * 10);
+    return plate;
+}
+
+function demoStep(msg, status) {
+    const el = document.getElementById('demo-steps');
+    if (!el) return;
+    const icons = { running: '⏳', done: '✅', fail: '❌' };
+    el.innerHTML += `<div style="padding:4px 0;font-size:13px;color:${status==='fail'?'#ff4d4f':status==='done'?'#52c41a':'#333'}">${icons[status]||'•'} ${msg}</div>`;
+    el.scrollTop = el.scrollHeight;
+}
+
+async function startDemo() {
+    if (demoRunning) return;
+    demoRunning = true;
+    const btn = document.getElementById('btn-demo');
+    const steps = document.getElementById('demo-steps');
+    const oldText = btn.textContent;
+    btn.textContent = '⏳ 演示中...';
+    btn.disabled = true;
+    steps.style.display = 'block';
+    steps.innerHTML = '';
+
+    const plate = randomPlate();
+    demoStep(`生成随机车牌: ${plate}`, 'running');
+
+    // Step 2: Check-in
+    let res = await post('/api/vehicle/checkin', { license_plate: plate, billing_type: 'standard' });
+    if (!res || !res.ok) { demoStep(`入库失败: ${res?.data?.error||'未知错误'}`, 'fail'); demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
+    demoStep(`🅿️ ${plate} 入库成功`, 'done');
+
+    // Step 3: Simulate parking (3 seconds)
+    demoStep('⏱ 停车计时中... (模拟3秒)', 'running');
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Step 4: Check-out
+    res = await post('/api/vehicle/checkout', { license_plate: plate });
+    if (!res || !res.ok) { demoStep(`出库失败: ${res?.data?.error||'未知错误'}`, 'fail'); demoRunning = false; btn.textContent = oldText; btn.disabled = false; return; }
+    const data = res.data;
+    demoStep(`🚗 ${plate} 出库成功`, 'done');
+
+    // Show receipt
+    const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
+    const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
+    const duration = data.record ? data.record.duration : (data.duration || '');
+    const fee = data.fee || 0;
+
+    demoStep(`💰 费用: ¥${parseFloat(fee).toFixed(2)}`, 'done');
+    setTimeout(() => {
+        document.getElementById('receipt-plate').textContent = plate;
+        document.getElementById('receipt-in').textContent = formatDateTime(inTime);
+        document.getElementById('receipt-out').textContent = formatDateTime(outTime);
+        document.getElementById('receipt-duration').textContent = duration || '计算中...';
+        document.getElementById('receipt-billing').textContent = '标准计费';
+        document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
+        showModal('receipt-modal');
+        loadRecentRecords();
+        loadBalance();
+        loadParkedVehicles();
+        demoRunning = false;
+        btn.textContent = oldText;
+        btn.disabled = false;
+    }, 500);
+}
+
 async function loadBulletin() {
     const container = document.getElementById('bulletin-content');
     if (!container) return;

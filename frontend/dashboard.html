@@ -103,7 +103,9 @@
                         <div class="actions mt-2">
                             <button class="btn btn-primary" onclick="handleCheckIn()" id="btn-checkin">快速入库</button>
                             <button class="btn btn-danger" onclick="handleCheckOut()" id="btn-checkout">车辆出库</button>
+                            <button class="btn btn-default" onclick="startDemo()" id="btn-demo" style="float:right">▶ 演示模式</button>
                         </div>
+                        <div id="demo-steps" style="display:none;margin-top:12px;padding:10px;background:#f9f9f9;border-radius:6px;font-size:13px;"></div>
                     </div>
 
                     <!-- Parked Vehicles Card (for admins) -->
@@ -275,6 +277,35 @@
             <div class="modal-footer">
                 <button class="btn btn-default" onclick="hideModal('purchase-modal')">取消</button>
                 <button class="btn btn-primary" onclick="confirmPurchase()">确认购买</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Receipt Modal -->
+    <div class="modal-overlay" id="receipt-modal">
+        <div class="modal" style="max-width:420px;">
+            <div class="modal-header"><h3>🧾 停车电子小票</h3><button class="modal-close" onclick="hideModal('receipt-modal')">&times;</button></div>
+            <div class="modal-body" style="text-align:center;padding:20px;">
+                <div style="border:2px dashed #e8e8e8;border-radius:8px;padding:20px;background:#fafafa;">
+                    <div style="font-size:12px;color:#999;margin-bottom:8px;">SMART PARKING 智慧停车场</div>
+                    <div id="receipt-plate" style="font-size:28px;font-weight:bold;letter-spacing:4px;color:#333;margin:8px 0;"></div>
+                    <div style="border-top:1px dashed #ddd;margin:12px 0;padding:8px 0;font-size:13px;color:#666;text-align:left;">
+                        <div style="display:flex;justify-content:space-between;"><span>入场时间</span><span id="receipt-in"></span></div>
+                        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>出场时间</span><span id="receipt-out"></span></div>
+                        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>停车时长</span><span id="receipt-duration"></span></div>
+                        <div style="display:flex;justify-content:space-between;margin-top:4px;"><span>计费方式</span><span id="receipt-billing"></span></div>
+                    </div>
+                    <div style="border-top:2px solid #333;margin:8px 0;padding:8px 0;">
+                        <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:bold;">
+                            <span>实付金额</span><span id="receipt-fee" style="color:#ff4d4f;"></span>
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:#bbb;margin-top:8px;">感谢使用，请妥善保管您的停车凭证</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content:center;">
+                <button class="btn btn-default" onclick="hideModal('receipt-modal')">关闭</button>
+                <button class="btn btn-primary" onclick="window.print()">打印小票</button>
             </div>
         </div>
     </div>
