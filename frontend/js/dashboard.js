@@ -129,6 +129,8 @@ async function loadRecentRecords() {
         </tr>`).join('');
 }
 
+let _parkedData = [];
+
 async function loadParkedVehicles() {
     const tbody = document.getElementById('parked-vehicles-list');
     if (!tbody || !hasPerm('vehicle.query')) return;
@@ -136,22 +138,43 @@ async function loadParkedVehicles() {
     const res = await get('/api/vehicle/parked' + (plate ? '?plate=' + encodeURIComponent(plate) : ''));
     if (!res || !res.ok || !res.data.records || res.data.records.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无在场车辆</td></tr>';
+        _parkedData = [];
         return;
     }
+    _parkedData = res.data.records;
     const canCheckOut = hasPerm('vehicle.checkout');
-    tbody.innerHTML = res.data.records.map(r => `
-        <tr>
+    tbody.innerHTML = _parkedData.map(r => {
+        const hoursParked = (Date.now() - new Date(r.check_in_time).getTime()) / 3600000;
+        const isOvertime = hoursParked > 24;
+        return `<tr>
             <td><strong>${escapeHtml(r.license_plate)}</strong></td>
             <td>${escapeHtml(r.P_name || r.location)}</td>
             <td>${r.spot_number ? r.spot_number+'号' : '-'}</td>
             <td>${formatDateTime(r.check_in_time)}</td>
-            <td><span style="color:#ff4d4f;font-weight:500">${r.duration || '计算中...'}</span></td>
+            <td><span style="color:${isOvertime?'#ff4d4f':'#666'};font-weight:${isOvertime?'600':'400'}">${r.duration || '计算中...'}${isOvertime?' ⚠️超24h':''}</span></td>
             <td>
                 ${canCheckOut
                     ? `<button class="btn btn-danger btn-xs" onclick="quickCheckOutParked('${r.license_plate}')">出场</button>`
                     : '<span style="color:#999">-</span>'}
             </td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
+}
+
+function exportParked() {
+    if (!_parkedData.length) { showError('parked-alert', '没有可导出的数据'); return; }
+    let csv = '车牌号,停车场,车位号,入库时间,已停时长,状态\n';
+    _parkedData.forEach(r => {
+        const hoursParked = (Date.now() - new Date(r.check_in_time).getTime()) / 3600000;
+        const status = hoursParked > 24 ? '超时' : '正常';
+        csv += `${r.license_plate},${r.P_name||r.location},${r.spot_number||''},${r.check_in_time},${r.duration||''},${status}\n`;
+    });
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '在场车辆_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
 }
 
 async function quickCheckOutParked(plate) {
