@@ -506,7 +506,7 @@ async function loadHeatmap() {
     const maxVal = Math.max(...allCounts, 1);
     chart.setOption({
         tooltip: { trigger: 'item', formatter: p => p.name + '<br>入场: ' + p.value + ' 辆<br>占比: ' + (p.value / Math.max(...allCounts,1) * 100).toFixed(0) + '%' },
-        polar: { radius: [50, 200], center: ['50%', '55%'] },
+        polar: { radius: [40, 180], center: ['50%', '60%'] },
         angleAxis: {
             type: 'category', data: allHours.map(h => h + '时'),
             startAngle: 90, clockwise: false,
