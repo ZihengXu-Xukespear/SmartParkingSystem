@@ -164,8 +164,8 @@ body {
 
 /* Grid */
 .row { display: flex; gap: 20px; flex-wrap: wrap; }
-.col-1 { flex: 1; min-width: 200px; }
-.col-2 { flex: 2; min-width: 400px; }
+.col-1 { flex: 1; min-width: 240px; }
+.col-2 { flex: 2; min-width: 380px; }
 .col-3 { flex: 3; }
 
 /* Stats Cards */

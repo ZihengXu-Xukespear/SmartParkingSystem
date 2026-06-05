@@ -109,6 +109,41 @@ async function loadStatus() {
             { value: d.P_available_count, name: '剩余车位', itemStyle: { color: '#52c41a' } }
         ]}]});
     }
+    // Update goal bars
+    updateGoals(d);
+}
+
+function updateGoals(d) {
+    const occBar = document.getElementById('goal-occ-bar');
+    const dailyBar = document.getElementById('goal-daily-bar');
+    const monthBar = document.getElementById('goal-month-bar');
+    if (!occBar || !d) return;
+
+    // Occupancy rate
+    const total = d.P_total_count || 1;
+    const occupied = d.P_current_count || 0;
+    const occRate = Math.min(occupied / total * 100, 100);
+    occBar.style.width = occRate + '%';
+    occBar.style.background = occRate > 80 ? 'linear-gradient(90deg,#ff6b6b,#ee5a24)' : occRate > 50 ? 'linear-gradient(90deg,#f9ca24,#f0932b)' : 'linear-gradient(90deg,#2ed573,#00aa7f)';
+    document.getElementById('goal-occ').textContent = Math.round(occRate) + '%';
+
+    // Daily income goal (target: capacity * fee * 8h * 60% utilization as daily target)
+    const targetDaily = total * d.P_fee * 8 * 0.6;
+    get('/api/report/summary').then(r => {
+        if (!r || !r.ok) return;
+        const today = parseFloat(r.data.today_income || 0);
+        const dailyPct = Math.min(today / targetDaily * 100, 100);
+        dailyBar.style.width = dailyPct + '%';
+        dailyBar.style.background = 'linear-gradient(90deg,#a29bfe,#6c5ce7)';
+        document.getElementById('goal-daily').textContent = '¥' + today.toFixed(0) + '/' + Math.round(targetDaily);
+
+        const month = parseFloat(r.data.month_income || 0);
+        const targetMonth = targetDaily * 30;
+        const monthPct = Math.min(month / targetMonth * 100, 100);
+        monthBar.style.width = monthPct + '%';
+        monthBar.style.background = monthPct > 80 ? 'linear-gradient(90deg,#ff6b6b,#ee5a24)' : 'linear-gradient(90deg,#2ed573,#00aa7f)';
+        document.getElementById('goal-month').textContent = '¥' + Math.round(month) + '/' + Math.round(targetMonth);
+    });
 }
 
 async function loadRecentRecords() {
@@ -129,6 +164,8 @@ async function loadRecentRecords() {
         </tr>`).join('');
 }
 
+let _parkedData = [];
+
 async function loadParkedVehicles() {
     const tbody = document.getElementById('parked-vehicles-list');
     if (!tbody || !hasPerm('vehicle.query')) return;
@@ -136,28 +173,50 @@ async function loadParkedVehicles() {
     const res = await get('/api/vehicle/parked' + (plate ? '?plate=' + encodeURIComponent(plate) : ''));
     if (!res || !res.ok || !res.data.records || res.data.records.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无在场车辆</td></tr>';
+        _parkedData = [];
         return;
     }
+    _parkedData = res.data.records;
     const canCheckOut = hasPerm('vehicle.checkout');
-    tbody.innerHTML = res.data.records.map(r => `
-        <tr>
+    tbody.innerHTML = _parkedData.map(r => {
+        const hoursParked = (Date.now() - new Date(r.check_in_time).getTime()) / 3600000;
+        const isOvertime = hoursParked > 24;
+        return `<tr>
             <td><strong>${escapeHtml(r.license_plate)}</strong></td>
             <td>${escapeHtml(r.P_name || r.location)}</td>
             <td>${r.spot_number ? r.spot_number+'号' : '-'}</td>
             <td>${formatDateTime(r.check_in_time)}</td>
-            <td><span style="color:#ff4d4f;font-weight:500">${r.duration || '计算中...'}</span></td>
+            <td><span style="color:${isOvertime?'#ff4d4f':'#666'};font-weight:${isOvertime?'600':'400'}">${r.duration || '计算中...'}${isOvertime?' ⚠️超24h':''}</span></td>
             <td>
                 ${canCheckOut
                     ? `<button class="btn btn-danger btn-xs" onclick="quickCheckOutParked('${r.license_plate}')">出场</button>`
                     : '<span style="color:#999">-</span>'}
             </td>
-        </tr>`).join('');
+        </tr>`;
+    }).join('');
+}
+
+function exportParked() {
+    if (!_parkedData.length) { showError('parked-alert', '没有可导出的数据'); return; }
+    let csv = '车牌号,停车场,车位号,入库时间,已停时长,状态\n';
+    _parkedData.forEach(r => {
+        const hoursParked = (Date.now() - new Date(r.check_in_time).getTime()) / 3600000;
+        const status = hoursParked > 24 ? '超时' : '正常';
+        csv += `${r.license_plate},${r.P_name||r.location},${r.spot_number||''},${r.check_in_time},${r.duration||''},${status}\n`;
+    });
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '在场车辆_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
 }
 
 async function quickCheckOutParked(plate) {
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
     if (res && res.ok) {
         showSuccess('parked-alert', '车辆 ' + plate + ' 出库成功！费用: ' + formatFee(res.data.fee) + '。请在10分钟内驶离');
+        showReceipt(plate, res.data);
         loadParkedVehicles(); loadStatus(); loadRecentRecords(); loadBalance();
     } else showError('parked-alert', res?.data?.error || '出库失败');
 }
@@ -241,6 +300,213 @@ async function confirmPurchase() {
     }
 }
 
+// ========== Demo Mode + Receipt ==========
+const demoProvinces = ['京','沪','粤','苏','浙','鲁','川','渝','闽','皖','湘','鄂'];
+const demoLetters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+let demoRunning = false;
+let demoStop = false;
+
+function stopDemo() {
+    demoStop = true;
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏹ 演示已停止</span>';
+    document.getElementById('btn-stop-demo').style.display = 'none';
+    document.getElementById('btn-demo').textContent = '▶ 演示模式';
+    document.getElementById('btn-demo').disabled = false;
+    // Remove any glows
+    document.querySelectorAll('.demo-glow').forEach(el => el.classList.remove('demo-glow'));
+    document.querySelectorAll('.demo-glow-btn').forEach(el => el.classList.remove('demo-glow-btn'));
+}
+
+function randomPlate() {
+    let plate = demoProvinces[Math.floor(Math.random() * demoProvinces.length)];
+    plate += demoLetters[Math.floor(Math.random() * demoLetters.length)];
+    for (let i = 0; i < 5; i++) plate += Math.floor(Math.random() * 10);
+    return plate;
+}
+
+function setDot(idx, status) {
+    const dots = document.querySelectorAll('.demo-step-dot');
+    const colors = { active: '#1890ff', done: '#52c41a', fail: '#ff4d4f' };
+    dots.forEach((d, i) => {
+        if (i < idx) { d.style.background = '#52c41a'; d.style.color = '#fff'; }
+        else if (i === idx) { d.style.background = colors[status] || '#1890ff'; d.style.color = '#fff'; }
+        else { d.style.background = '#eee'; d.style.color = '#999'; }
+    });
+}
+
+function glow(el, hint, color) {
+    const c = color || '#1890ff';
+    el.classList.add('demo-glow');
+    el.style.borderColor = c;
+    document.getElementById('demo-hint').innerHTML = `<span style="color:${c};">👉 ${hint}</span>`;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function unglow(el) {
+    el.classList.remove('demo-glow');
+    el.style.borderColor = '';
+}
+
+function simulateClick(el) {
+    el.style.transform = 'scale(0.95)';
+    el.style.transition = 'all 0.1s';
+    setTimeout(() => { el.style.transform = ''; }, 150);
+}
+
+async function startDemo() {
+    if (demoRunning) return;
+    demoRunning = true;
+    demoStop = false;
+    const btn = document.getElementById('btn-demo');
+    const steps = document.getElementById('demo-steps');
+    const oldText = btn.textContent;
+    btn.textContent = '⏳ 演示中...';
+    btn.disabled = true;
+    steps.style.display = 'block';
+    document.getElementById('demo-hint').textContent = '';
+    document.getElementById('btn-stop-demo').style.display = 'inline-block';
+
+    const plate = randomPlate();
+    const input = document.getElementById('plate-input');
+
+    // ── Step 1: Fill plate ──
+    setDot(0, 'active');
+    glow(input, `正在生成车牌... ${plate}`);
+    await new Promise(r => setTimeout(r, 1200));
+    if (demoStop) { cleanupDemo(); return; }
+    input.value = plate;
+    input.style.borderColor = '#52c41a';
+    input.style.transition = 'border-color 0.3s';
+    setDot(0, 'done');
+    await new Promise(r => setTimeout(r, 400));
+    if (demoStop) { cleanupDemo(); return; }
+
+    // ── Step 2: Click check-in ──
+    const btnIn = document.getElementById('btn-checkin');
+    setDot(1, 'active');
+    unglow(input);
+    input.style.borderColor = '';
+    glow(btnIn, '点击"快速入库"按钮');
+    await new Promise(r => setTimeout(r, 1000));
+    if (demoStop) { cleanupDemo(); return; }
+    simulateClick(btnIn);
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">⏳ 正在请求入库...</span>';
+    let res = await post('/api/vehicle/checkin', { license_plate: plate, billing_type: 'standard' });
+    if (!res || !res.ok) { setDot(1, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 入库失败: ' + (res?.data?.error||'') + '</span>'; cleanupDemo(); return; }
+    unglow(btnIn);
+    setDot(1, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 入库成功！车辆已入场</span>';
+    await new Promise(r => setTimeout(r, 800));
+    if (demoStop) { cleanupDemo(); return; }
+
+    // ── Step 3: Parking countdown ──
+    setDot(2, 'active');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">⏱ 车辆停放中...</span>';
+    for (let i = 3; i > 0; i--) {
+        document.getElementById('demo-hint').innerHTML = `<span style="color:#1890ff;">⏱ 停车计时 ${i}秒...</span>`;
+        await new Promise(r => setTimeout(r, 1000));
+        if (demoStop) { cleanupDemo(); return; }
+    }
+    setDot(2, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 停车结束</span>';
+    await new Promise(r => setTimeout(r, 400));
+    if (demoStop) { cleanupDemo(); return; }
+
+    // ── Step 4: Click check-out ──
+    const btnOut = document.getElementById('btn-checkout');
+    setDot(3, 'active');
+    glow(btnOut, '点击"车辆出库"按钮', '#ff4d4f');
+    await new Promise(r => setTimeout(r, 1000));
+    if (demoStop) { cleanupDemo(); return; }
+    simulateClick(btnOut);
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏳ 正在出库计费...</span>';
+    res = await post('/api/vehicle/checkout', { license_plate: plate });
+    if (!res || !res.ok) { setDot(3, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 出库失败: ' + (res?.data?.error||'') + '</span>'; cleanupDemo(); return; }
+    const data = res.data;
+    const fee = data.fee || 0;
+    unglow(btnOut);
+    setDot(3, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 出库成功，费用: ¥' + parseFloat(fee).toFixed(2) + '</span>';
+    await new Promise(r => setTimeout(r, 600));
+
+    // ── Step 5: Receipt ──
+    setDot(4, 'active');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">📄 正在生成电子小票...</span>';
+    await new Promise(r => setTimeout(r, 600));
+    showReceipt(plate, data);
+    setDot(4, 'done');
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 演示完成！系统导览已就绪</span>';
+
+    loadRecentRecords();
+    loadBalance();
+    loadParkedVehicles();
+
+    // Sidebar tour
+    await new Promise(r => setTimeout(r, 1200));
+    hideModal('receipt-modal');
+    if (!demoStop) await sidebarTour();
+    cleanupDemo();
+}
+
+function cleanupDemo() {
+    document.getElementById('btn-stop-demo').style.display = 'none';
+    demoRunning = false;
+    document.getElementById('btn-demo').textContent = '▶ 演示模式';
+    document.getElementById('btn-demo').disabled = false;
+    document.querySelectorAll('.demo-glow, .demo-glow-btn').forEach(el => {
+        el.classList.remove('demo-glow', 'demo-glow-btn');
+        el.style.borderColor = '';
+        el.style.transform = '';
+    });
+}
+
+// ========== Sidebar Tour ==========
+const tourPages = [
+    { id: 'nav-dashboard', label: '主面板', desc: '停车场实时状态、快捷出入库、收入预测、套餐购买' },
+    { id: 'nav-parking', label: '停车场', desc: '多停车场管理、车位数与费率设置' },
+    { id: 'nav-checkin', label: '车辆入库', desc: '选择停车场和车位，手动入库' },
+    { id: 'nav-vehicles', label: '车辆信息', desc: '查询出入记录、在场车辆管理' },
+    { id: 'nav-admin', label: '管理页面', desc: '用户管理、套餐、计费规则、黑名单、消息管理' },
+    { id: 'nav-reservation', label: '预约管理', desc: '车位预约与历史预约查询' },
+    { id: 'nav-recognize', label: '车牌识别', desc: '摄像头抓拍自动识别车牌' },
+    { id: 'nav-chat', label: '联系客服', desc: '在线客服消息咨询' },
+];
+
+async function sidebarTour() {
+    const hint = document.getElementById('demo-hint');
+    const steps = document.getElementById('demo-steps');
+    for (const page of tourPages) {
+        if (demoStop) return;
+        const el = document.getElementById(page.id);
+        if (!el) continue;
+        el.classList.add('demo-glow');
+        hint.innerHTML = `<span style="color:#1890ff;">👉 ${page.label}：${page.desc} <span style="font-size:11px;color:#999;">（点击可跳转）</span></span>`;
+
+        // Wait for user click OR timeout
+        const clicked = await new Promise(resolve => {
+            const handler = (e) => { e.preventDefault(); el.removeEventListener('click', handler); resolve(true); };
+            el.addEventListener('click', handler);
+            setTimeout(() => { el.removeEventListener('click', handler); resolve(false); }, 2500);
+        });
+        el.classList.remove('demo-glow');
+
+        if (clicked) {
+            // Navigate to that page with demo flag
+            const href = el.getAttribute('href');
+            if (href) {
+                const sep = href.includes('?') ? '&' : '?';
+                window.location.href = href + sep + 'demo=1';
+                await new Promise(() => {}); // never resolves (navigation)
+            }
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    if (!demoStop) {
+        hint.innerHTML = '<span style="color:#52c41a;">✅ 系统导览结束，你可以自由探索各个功能页面了</span>';
+        steps.style.display = 'none';
+    }
+}
+
 async function loadBulletin() {
     const container = document.getElementById('bulletin-content');
     if (!container) return;
@@ -279,6 +545,136 @@ async function loadInterceptionCount() {
     }
 }
 
+// ========== Smart Report ==========
+async function showSmartReport() {
+    showModal('report-modal');
+    document.getElementById('report-date').textContent = '报告生成: ' + new Date().toLocaleString('zh-CN');
+    document.getElementById('report-body').innerHTML = '<div style="color:rgba(255,255,255,0.6);padding:40px 0;">⏳ 分析中...</div>';
+
+    const [statusRes, summaryRes, parkedRes, hourlyRes] = await Promise.all([
+        get('/api/parking/status'),
+        get('/api/report/summary'),
+        get('/api/vehicle/parked'),
+        get('/api/report/hourly')
+    ]);
+
+    const total = statusRes?.data?.P_total_count || 100;
+    const occupied = statusRes?.data?.P_current_count || 0;
+    const available = statusRes?.data?.P_available_count || 0;
+    const occRate = total > 0 ? (occupied / total * 100).toFixed(0) : '0';
+    const todayIncome = parseFloat(summaryRes?.data?.today_income || 0).toFixed(2);
+    const monthIncome = parseFloat(summaryRes?.data?.month_income || 0).toFixed(0);
+    const parkedCount = parkedRes?.data?.records?.length || 0;
+
+    // Find peak hour
+    let peakHour = '-', peakCount = 0;
+    if (hourlyRes?.data?.hours && hourlyRes.data.counts) {
+        for (let i = 0; i < hourlyRes.data.hours.length; i++) {
+            if (hourlyRes.data.counts[i] > peakCount) {
+                peakCount = hourlyRes.data.counts[i];
+                peakHour = hourlyRes.data.hours[i] + '时-' + (parseInt(hourlyRes.data.hours[i]) + 1) + '时';
+            }
+        }
+    }
+
+    const avgParked = occupied > 0 ? '约' + Math.round(parkedCount / Math.max(occupied, 1)) : '-';
+    const efficiency = available >= total * 0.3 ? '充裕' : available > 0 ? '紧张' : '已满';
+
+    setTimeout(() => {
+        document.getElementById('report-body').innerHTML = `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center;">
+                <div class="report-card-in" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(238,90,36,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">当前占用率</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">${occRate}%</div>
+                    <div style="font-size:12px;opacity:0.8;">${occupied}/${total} 车位</div>
+                </div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#2ed573,#0abde3);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(10,189,227,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">今日收入</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">¥${todayIncome}</div>
+                    <div style="font-size:12px;opacity:0.8;">本月 ¥${monthIncome}</div>
+                </div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(108,92,231,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">高峰时段</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">${peakHour.split('-')[0]}</div>
+                    <div style="font-size:12px;opacity:0.8;">至 ${peakHour.split('-')[1]||'--'}</div>
+                </div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#f9ca24,#f0932b);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(240,147,43,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">在场车辆</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">${parkedCount}</div>
+                    <div style="font-size:12px;opacity:0.8;">车位状态: ${efficiency}</div>
+                </div>
+            </div>
+            <div style="margin-top:16px;background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border-radius:12px;padding:16px;font-size:13px;text-align:left;border:1px solid rgba(255,255,255,0.15);">
+                <div style="margin-bottom:8px;font-weight:600;letter-spacing:1px;">📌 运营摘要</div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>车流量高峰</span><span style="font-weight:500;">${peakHour}（峰值 ${peakCount} 辆）</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>平均每车占用</span><span style="font-weight:500;">${avgParked} 车位</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                    <span>推荐建议</span><span style="font-weight:500;color:${occRate > 80 ? '#ff6b6b' : occRate > 50 ? '#f9ca24' : '#2ed573'};">${occRate > 80 ? '⚠️ 考虑增加扩容或引导错峰' : occRate > 50 ? '✅ 运营正常' : '📣 可加大推广吸引客流'}</span>
+                </div>
+            </div>
+        `;
+    }, 300);
+}
+
+async function checkHealth() {
+    const el = document.getElementById('health-status');
+    if (!el) return;
+    try {
+        const res = await get('/api/health');
+        if (res && res.ok && res.data.status === 'ok') {
+            el.innerHTML = '✅ 服务正常 · ' + (res.data.db_pool || '') + ' · v' + (res.data.version || '');
+            el.style.color = '#52c41a';
+        } else {
+            el.innerHTML = '⚠️ 服务异常';
+            el.style.color = '#faad14';
+        }
+    } catch (e) {
+        el.innerHTML = '❌ 连接失败';
+        el.style.color = '#ff4d4f';
+    }
+}
+
+async function loadHeatmap() {
+    const container = document.getElementById('heatmap-chart');
+    if (!container) return;
+    const res = await get('/api/report/hourly');
+    if (!res || !res.ok || !res.data.hours || !res.data.counts) {
+        container.innerHTML = '<p style="color:#999;text-align:center;">暂无数据</p>';
+        return;
+    }
+    const hours = res.data.hours.map(String);
+    const counts = res.data.counts;
+    if (hours.length === 0) { container.innerHTML = '<p style="color:#999;text-align:center;">暂无数据</p>'; return; }
+
+    if (typeof echarts === 'undefined') { container.innerHTML = '<p style="color:#999;text-align:center;">图表库加载中...</p>'; return; }
+    const chart = echarts.init(container);
+    const allCounts = Array.from({length: 24}, (_, i) => { const idx = hours.indexOf(String(i)); return idx >= 0 ? counts[idx] : 0; });
+    const maxVal = Math.max(...allCounts, 1);
+    chart.setOption({
+        tooltip: { trigger: 'axis', formatter: p => p[0].name + '<br>入场: ' + p[0].value + ' 辆' },
+        grid: { left: 0, right: 0, top: 4, bottom: 4 },
+        xAxis: { type: 'category', data: Array.from({length:24},(_,i)=>String(i)), axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: false } },
+        yAxis: { type: 'value', show: false, min: 0, max: maxVal, splitLine: { show: false } },
+        series: [{
+            type: 'bar', data: allCounts, barWidth: '80%',
+            itemStyle: {
+                color: p => {
+                    const ratio = p.value / maxVal;
+                    if (ratio === 0) return '#f2f2f2';
+                    const g = Math.round(170 - ratio * 90);
+                    return `rgb(0,${g},127)`;
+                },
+                borderRadius: [2, 2, 0, 0]
+            },
+            animationDelay: idx => idx * 30
+        }]
+    });
+}
+
 async function handleCheckIn() {
     const plate = document.getElementById('plate-input').value.trim();
     const billingSel = document.getElementById('billing-type');
@@ -294,12 +690,27 @@ async function handleCheckIn() {
     } else showError('vehicle-alert', res?.data?.error || '入库失败');
 }
 
+function showReceipt(plate, data) {
+    const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
+    const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
+    const duration = data.record ? data.record.duration : (data.duration || '');
+    const fee = data.fee || 0;
+    document.getElementById('receipt-plate').textContent = plate;
+    document.getElementById('receipt-in').textContent = formatDateTime(inTime);
+    document.getElementById('receipt-out').textContent = formatDateTime(outTime);
+    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-billing').textContent = '标准计费';
+    document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
+    showModal('receipt-modal');
+}
+
 async function handleCheckOut() {
     const plate = document.getElementById('plate-input').value.trim();
     if (!plate) { showError('vehicle-alert', '请输入车牌号'); return; }
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
     if (res && res.ok) {
         showSuccess('vehicle-alert', `车辆 ${plate} 出库成功！费用: ${formatFee(res.data.fee)}。请在10分钟内驶离`);
+        showReceipt(plate, res.data);
         document.getElementById('plate-input').value = '';
         loadStatus(); loadRecentRecords(); loadBalance(); loadParkedVehicles();
     } else showError('vehicle-alert', res?.data?.error || '出库失败');
@@ -427,9 +838,12 @@ loadParkingSettings();
 loadRecentRecords();
 loadBalance();
 loadBulletin();
+loadHeatmap();
 loadPrediction();
 loadInterceptionCount();
 loadParkedVehicles();
+checkHealth();
+setInterval(() => { checkHealth(); }, 30000);
 setInterval(() => { loadStatus(); }, 10000);
 setInterval(() => { loadPrediction(); loadInterceptionCount(); }, 30000);
 setInterval(() => { loadParkedVehicles(); }, 15000);

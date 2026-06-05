@@ -265,10 +265,24 @@ function renderVehicles(filter) {
         <td>${v.is_parked ? '<button class="btn btn-danger btn-sm btn-checkout-vehicle">出库</button>' : '<span style="color:#999">-</span>'}</td>
     </tr>`).join('');
 }
+function showReceipt(plate, data) {
+    const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
+    const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
+    const duration = data.record ? data.record.duration : (data.duration || '');
+    const fee = data.fee || 0;
+    document.getElementById('receipt-plate').textContent = plate;
+    document.getElementById('receipt-in').textContent = formatDateTime(inTime);
+    document.getElementById('receipt-out').textContent = formatDateTime(outTime);
+    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-billing').textContent = '标准计费';
+    document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
+    showModal('receipt-modal');
+}
+
 async function checkoutVehicle(plate) {
     if (!confirm('确定对 ' + plate + ' 执行出库操作吗？费用将从您的余额扣除。')) return;
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
-    if (res && res.ok) { showSuccess('vehicle-mgmt-alert', plate + ' 出库成功！费用: ¥' + parseFloat(res.data.fee).toFixed(2) + '。请在10分钟内驶离'); loadVehicles('all'); }
+    if (res && res.ok) { showSuccess('vehicle-mgmt-alert', plate + ' 出库成功！费用: ¥' + parseFloat(res.data.fee).toFixed(2) + '。请在10分钟内驶离'); showReceipt(plate, res.data); loadVehicles('all'); }
     else showError('vehicle-mgmt-alert', res?.data?.error || '出库失败');
 }
 

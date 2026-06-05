@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <memory>
 #include <vector>
+#include <chrono>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -121,6 +122,19 @@ int main() {
             res["server_port"] = AppConfig::instance().server_port;
             res["notice_expire_minutes"] = AppConfig::instance().notice_expire_minutes;
         }
+        crow::response r(res);
+        r.set_header("Content-Type", "application/json; charset=utf-8");
+        return r;
+    });
+
+    CROW_ROUTE(app, "/api/health").methods("GET"_method)([]() {
+        crow::json::wvalue res;
+        res["status"] = "ok";
+        res["version"] = "3.2";
+        res["uptime"] = "运行中";
+        res["db_connected"] = AppConfig::instance().initialized;
+        auto conn = MySQLPool::instance().getConnection();
+        res["db_pool"] = conn ? "正常" : "异常";
         crow::response r(res);
         r.set_header("Content-Type", "application/json; charset=utf-8");
         return r;
