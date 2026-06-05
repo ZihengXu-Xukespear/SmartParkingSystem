@@ -109,6 +109,41 @@ async function loadStatus() {
             { value: d.P_available_count, name: '剩余车位', itemStyle: { color: '#52c41a' } }
         ]}]});
     }
+    // Update goal bars
+    updateGoals(d);
+}
+
+function updateGoals(d) {
+    const occBar = document.getElementById('goal-occ-bar');
+    const dailyBar = document.getElementById('goal-daily-bar');
+    const monthBar = document.getElementById('goal-month-bar');
+    if (!occBar || !d) return;
+
+    // Occupancy rate
+    const total = d.P_total_count || 1;
+    const occupied = d.P_current_count || 0;
+    const occRate = Math.min(occupied / total * 100, 100);
+    occBar.style.width = occRate + '%';
+    occBar.style.background = occRate > 80 ? 'linear-gradient(90deg,#ff6b6b,#ee5a24)' : occRate > 50 ? 'linear-gradient(90deg,#f9ca24,#f0932b)' : 'linear-gradient(90deg,#2ed573,#00aa7f)';
+    document.getElementById('goal-occ').textContent = Math.round(occRate) + '%';
+
+    // Daily income goal (target: capacity * fee * 8h * 60% utilization as daily target)
+    const targetDaily = total * d.P_fee * 8 * 0.6;
+    get('/api/report/summary').then(r => {
+        if (!r || !r.ok) return;
+        const today = parseFloat(r.data.today_income || 0);
+        const dailyPct = Math.min(today / targetDaily * 100, 100);
+        dailyBar.style.width = dailyPct + '%';
+        dailyBar.style.background = 'linear-gradient(90deg,#a29bfe,#6c5ce7)';
+        document.getElementById('goal-daily').textContent = '¥' + today.toFixed(0) + '/' + Math.round(targetDaily);
+
+        const month = parseFloat(r.data.month_income || 0);
+        const targetMonth = targetDaily * 30;
+        const monthPct = Math.min(month / targetMonth * 100, 100);
+        monthBar.style.width = monthPct + '%';
+        monthBar.style.background = monthPct > 80 ? 'linear-gradient(90deg,#ff6b6b,#ee5a24)' : 'linear-gradient(90deg,#2ed573,#00aa7f)';
+        document.getElementById('goal-month').textContent = '¥' + Math.round(month) + '/' + Math.round(targetMonth);
+    });
 }
 
 async function loadRecentRecords() {

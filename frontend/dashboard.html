@@ -92,6 +92,34 @@
                 </div>
             </div>
 
+            <!-- Goal Progress Bar -->
+            <div id="goal-bar" style="display:flex;gap:20px;margin-bottom:16px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:140px;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
+                        <span>🅿️ 车位利用率</span><span id="goal-occ" style="font-weight:600;">0%</span>
+                    </div>
+                    <div style="background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden;">
+                        <div id="goal-occ-bar" style="height:100%;border-radius:4px;width:0%;transition:width 1s ease;"></div>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:140px;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
+                        <span>💰 日收入目标</span><span id="goal-daily" style="font-weight:600;">0%</span>
+                    </div>
+                    <div style="background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden;">
+                        <div id="goal-daily-bar" style="height:100%;border-radius:4px;width:0%;transition:width 1s ease;"></div>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:140px;background:#fff;border-radius:8px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+                    <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;">
+                        <span>📈 月目标</span><span id="goal-month" style="font-weight:600;">0%</span>
+                    </div>
+                    <div style="background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden;">
+                        <div id="goal-month-bar" style="height:100%;border-radius:4px;width:0%;transition:width 1s ease;"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="row">
                 <!-- Left Column -->
                 <div class="col-2">
