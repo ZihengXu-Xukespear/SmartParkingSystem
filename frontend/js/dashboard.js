@@ -548,37 +548,37 @@ async function showSmartReport() {
     setTimeout(() => {
         document.getElementById('report-body').innerHTML = `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center;">
-                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
-                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">当前占用率</div>
-                    <div style="font-size:42px;font-weight:700;">${occRate}%</div>
-                    <div style="font-size:12px;opacity:0.7;">${occupied}/${total} 车位</div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#ff6b6b,#ee5a24);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(238,90,36,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">当前占用率</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">${occRate}%</div>
+                    <div style="font-size:12px;opacity:0.8;">${occupied}/${total} 车位</div>
                 </div>
-                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
-                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">今日收入</div>
-                    <div style="font-size:42px;font-weight:700;">¥${todayIncome}</div>
-                    <div style="font-size:12px;opacity:0.7;">本月 ¥${monthIncome}</div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#2ed573,#0abde3);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(10,189,227,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">今日收入</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">¥${todayIncome}</div>
+                    <div style="font-size:12px;opacity:0.8;">本月 ¥${monthIncome}</div>
                 </div>
-                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
-                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">高峰时段</div>
-                    <div style="font-size:42px;font-weight:700;">${peakHour.split('-')[0]}</div>
-                    <div style="font-size:12px;opacity:0.7;">至 ${peakHour.split('-')[1]||'--'}</div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#a29bfe,#6c5ce7);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(108,92,231,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">高峰时段</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">${peakHour.split('-')[0]}</div>
+                    <div style="font-size:12px;opacity:0.8;">至 ${peakHour.split('-')[1]||'--'}</div>
                 </div>
-                <div class="report-card-in" style="background:rgba(255,255,255,0.12);border-radius:12px;padding:16px;">
-                    <div style="font-size:11px;opacity:0.6;margin-bottom:4px;">在场车辆</div>
-                    <div style="font-size:42px;font-weight:700;">${parkedCount}</div>
-                    <div style="font-size:12px;opacity:0.7;">车位状态: ${efficiency}</div>
+                <div class="report-card-in" style="background:linear-gradient(135deg,#f9ca24,#f0932b);border-radius:12px;padding:16px;box-shadow:0 4px 20px rgba(240,147,43,0.3);">
+                    <div style="font-size:11px;opacity:0.8;margin-bottom:4px;letter-spacing:1px;">在场车辆</div>
+                    <div style="font-size:44px;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,0.2);">${parkedCount}</div>
+                    <div style="font-size:12px;opacity:0.8;">车位状态: ${efficiency}</div>
                 </div>
             </div>
-            <div style="margin-top:16px;background:rgba(255,255,255,0.1);border-radius:12px;padding:16px;font-size:13px;opacity:0.8;text-align:left;">
-                <div style="margin-bottom:8px;">📌 运营摘要</div>
-                <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
-                    <span>车流量高峰</span><span>${peakHour}（峰值 ${peakCount} 辆）</span>
+            <div style="margin-top:16px;background:rgba(255,255,255,0.1);backdrop-filter:blur(10px);border-radius:12px;padding:16px;font-size:13px;text-align:left;border:1px solid rgba(255,255,255,0.15);">
+                <div style="margin-bottom:8px;font-weight:600;letter-spacing:1px;">📌 运营摘要</div>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>车流量高峰</span><span style="font-weight:500;">${peakHour}（峰值 ${peakCount} 辆）</span>
                 </div>
-                <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
-                    <span>平均每车占用</span><span>${avgParked} 车位</span>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);">
+                    <span>平均每车占用</span><span style="font-weight:500;">${avgParked} 车位</span>
                 </div>
-                <div style="display:flex;justify-content:space-between;padding:4px 0;">
-                    <span>推荐建议</span><span>${occRate > 80 ? '考虑增加扩容或引导错峰' : occRate > 50 ? '运营正常' : '可加大推广吸引客流'}</span>
+                <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                    <span>推荐建议</span><span style="font-weight:500;color:${occRate > 80 ? '#ff6b6b' : occRate > 50 ? '#f9ca24' : '#2ed573'};">${occRate > 80 ? '⚠️ 考虑增加扩容或引导错峰' : occRate > 50 ? '✅ 运营正常' : '📣 可加大推广吸引客流'}</span>
                 </div>
             </div>
         `;
