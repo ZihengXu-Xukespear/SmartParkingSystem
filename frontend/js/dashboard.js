@@ -158,6 +158,7 @@ async function quickCheckOutParked(plate) {
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
     if (res && res.ok) {
         showSuccess('parked-alert', '车辆 ' + plate + ' 出库成功！费用: ' + formatFee(res.data.fee) + '。请在10分钟内驶离');
+        showReceipt(plate, res.data);
         loadParkedVehicles(); loadStatus(); loadRecentRecords(); loadBalance();
     } else showError('parked-alert', res?.data?.error || '出库失败');
 }
