@@ -352,17 +352,8 @@ async function startDemo() {
     // ── Step 5: Receipt ──
     setDot(4, 'active');
     document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">📄 正在生成电子小票...</span>';
-    const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
-    const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
-    const duration = data.record ? data.record.duration : (data.duration || '');
     await new Promise(r => setTimeout(r, 600));
-    document.getElementById('receipt-plate').textContent = plate;
-    document.getElementById('receipt-in').textContent = formatDateTime(inTime);
-    document.getElementById('receipt-out').textContent = formatDateTime(outTime);
-    document.getElementById('receipt-duration').textContent = duration || '计算中...';
-    document.getElementById('receipt-billing').textContent = '标准计费';
-    document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
-    showModal('receipt-modal');
+    showReceipt(plate, data);
     setDot(4, 'done');
     document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 演示完成！系统导览已就绪</span>';
 
@@ -475,24 +466,36 @@ async function loadHeatmap() {
 
     if (typeof echarts === 'undefined') { container.innerHTML = '<p style="color:#999;text-align:center;">图表库加载中...</p>'; return; }
     const chart = echarts.init(container);
-    const maxVal = Math.max(...counts);
+    // Build 24-hour data (fill missing hours with 0)
+    const fullHours = Array.from({length: 24}, (_, i) => String(i));
+    const fullCounts = fullHours.map(h => {
+        const idx = hours.indexOf(h);
+        return idx >= 0 ? counts[idx] : 0;
+    });
+    const maxVal = Math.max(...fullCounts, 1);
     chart.setOption({
-        tooltip: { trigger: 'axis', formatter: params => params[0].name + '时<br>入场: ' + params[0].value + ' 辆' },
-        grid: { left: 30, right: 10, top: 10, bottom: 25 },
-        xAxis: { type: 'category', data: hours.map(h => h + '时'), axisLabel: { fontSize: 10, interval: 2 } },
-        yAxis: { type: 'value', show: false, min: 0 },
+        tooltip: { trigger: 'item', formatter: params => params.name + '<br>入场: ' + params.value + ' 辆' },
+        polar: { radius: ['10%', '85%'] },
+        angleAxis: {
+            type: 'category', data: fullHours.map(h => h + '时'),
+            startAngle: 90, clockwise: false,
+            axisLabel: { fontSize: 9, interval: 2, color: '#666' }
+        },
+        radiusAxis: { min: 0, max: maxVal, show: false },
         series: [{
-            type: 'bar', data: counts,
+            type: 'bar', data: fullCounts,
+            coordinateSystem: 'polar',
+            barWidth: '75%',
             itemStyle: {
                 color: params => {
                     const v = params.value;
-                    const r = Math.round(200 - (v / maxVal) * 150);
-                    const g = Math.round(130 + (v / maxVal) * 70);
+                    const ratio = v / maxVal;
+                    const r = Math.round(180 - ratio * 120);
+                    const g = Math.round(140 + ratio * 60);
                     return `rgb(${r},${g},70)`;
                 },
                 borderRadius: [2, 2, 0, 0]
-            },
-            barWidth: '70%'
+            }
         }]
     });
 }
@@ -512,12 +515,27 @@ async function handleCheckIn() {
     } else showError('vehicle-alert', res?.data?.error || '入库失败');
 }
 
+function showReceipt(plate, data) {
+    const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
+    const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
+    const duration = data.record ? data.record.duration : (data.duration || '');
+    const fee = data.fee || 0;
+    document.getElementById('receipt-plate').textContent = plate;
+    document.getElementById('receipt-in').textContent = formatDateTime(inTime);
+    document.getElementById('receipt-out').textContent = formatDateTime(outTime);
+    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-billing').textContent = '标准计费';
+    document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
+    showModal('receipt-modal');
+}
+
 async function handleCheckOut() {
     const plate = document.getElementById('plate-input').value.trim();
     if (!plate) { showError('vehicle-alert', '请输入车牌号'); return; }
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
     if (res && res.ok) {
         showSuccess('vehicle-alert', `车辆 ${plate} 出库成功！费用: ${formatFee(res.data.fee)}。请在10分钟内驶离`);
+        showReceipt(plate, res.data);
         document.getElementById('plate-input').value = '';
         loadStatus(); loadRecentRecords(); loadBalance(); loadParkedVehicles();
     } else showError('vehicle-alert', res?.data?.error || '出库失败');
