@@ -501,49 +501,26 @@ async function loadHeatmap() {
 
     if (typeof echarts === 'undefined') { container.innerHTML = '<p style="color:#999;text-align:center;">图表库加载中...</p>'; return; }
     const chart = echarts.init(container);
-    const allHours = Array.from({length: 24}, (_, i) => String(i));
-    const allCounts = allHours.map(h => { const idx = hours.indexOf(h); return idx >= 0 ? counts[idx] : 0; });
+    const allCounts = Array.from({length: 24}, (_, i) => { const idx = hours.indexOf(String(i)); return idx >= 0 ? counts[idx] : 0; });
     const maxVal = Math.max(...allCounts, 1);
     chart.setOption({
-        tooltip: { trigger: 'item', formatter: p => p.name + '<br>入场: ' + p.value + ' 辆<br>占比: ' + (p.value / Math.max(...allCounts,1) * 100).toFixed(0) + '%' },
-        polar: { radius: [40, 180], center: ['50%', '60%'] },
-        angleAxis: {
-            type: 'category', data: allHours.map(h => h + '时'),
-            startAngle: 90, clockwise: false,
-            axisLabel: { fontSize: 9, color: '#888', margin: 2 },
-            splitLine: { show: false },
-            axisLine: { show: false }
-        },
-        radiusAxis: { min: 0, max: maxVal, show: false, splitLine: { show: false } },
-        series: [
-            {
-                type: 'bar', data: allCounts,
-                coordinateSystem: 'polar',
-                barWidth: '70%',
-                itemStyle: {
-                    color: p => {
-                        const r = Math.round(200 - (p.value / maxVal) * 140);
-                        const g = Math.round(130 + (p.value / maxVal) * 80);
-                        return `rgb(${r},${g},70)`;
-                    },
-                    borderRadius: [3, 3, 0, 0]
+        tooltip: { trigger: 'axis', formatter: p => p[0].name + '<br>入场: ' + p[0].value + ' 辆' },
+        grid: { left: 0, right: 0, top: 4, bottom: 4 },
+        xAxis: { type: 'category', data: Array.from({length:24},(_,i)=>String(i)), axisLabel: { show: false }, axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: false } },
+        yAxis: { type: 'value', show: false, min: 0, max: maxVal, splitLine: { show: false } },
+        series: [{
+            type: 'bar', data: allCounts, barWidth: '80%',
+            itemStyle: {
+                color: p => {
+                    const ratio = p.value / maxVal;
+                    if (ratio === 0) return '#f2f2f2';
+                    const g = Math.round(170 - ratio * 90);
+                    return `rgb(0,${g},127)`;
                 },
-                label: {
-                    show: true, fontSize: 8, color: '#999',
-                    formatter: p => p.value > 0 ? p.value : '',
-                    position: 'outside'
-                }
+                borderRadius: [2, 2, 0, 0]
             },
-            {
-                type: 'bar', data: allCounts.map(() => maxVal),
-                coordinateSystem: 'polar',
-                barWidth: '70%',
-                itemStyle: { color: '#f5f5f5', borderRadius: [3, 3, 0, 0] },
-                z: 0,
-                silent: true,
-                animation: false
-            }
-        ]
+            animationDelay: idx => idx * 30
+        }]
     });
 }
 
