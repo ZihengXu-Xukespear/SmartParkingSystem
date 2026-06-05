@@ -348,6 +348,7 @@
                 if (res && res.ok) {
                     let data = res.data || res;
                     showSuccess('vehicle-alert', plate + ' 出库成功！费用: ¥' + parseFloat(data.fee || 0).toFixed(2) + '，请在10分钟内驶离');
+                    if (typeof showReceipt === 'function') showReceipt(plate, data);
                     loadRecentRecords();
                     loadBalance();
                 } else {
