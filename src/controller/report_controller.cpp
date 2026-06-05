@@ -1,5 +1,6 @@
 #include "report_controller.h"
 #include "../service/report_service.h"
+#include "../database/mysql_pool.h"
 #include "../permissions.h"
 
 std::string ReportController::getPrefix() const { return "/api/report"; }
@@ -55,6 +56,30 @@ void ReportController::registerRoutes(crow::SimpleApp& app) {
         resp.set_header("Content-Disposition",
             "attachment; filename=report.csv");
         return resp;
+    });
+
+    CROW_ROUTE(app, "/api/report/hourly").methods("GET"_method)([](const crow::request& req) {
+        if (!BaseController::checkPermission(req, Permissions::REPORT_VIEW))
+            return BaseController::errorResponse(403, "权限不足");
+        auto conn = MySQLPool::instance().getConnection();
+        crow::json::wvalue res;
+        std::vector<crow::json::wvalue> hours, counts;
+        if (conn) {
+            if (mysql_query(conn->get(), "SELECT HOUR(check_in_time) AS h, COUNT(*) AS c FROM CAR_RECORD WHERE check_in_time >= DATE_SUB(NOW(), INTERVAL 30 DAY) GROUP BY HOUR(check_in_time) ORDER BY h") == 0) {
+                MYSQL_RES* r = mysql_store_result(conn->get());
+                if (r) {
+                    MYSQL_ROW row;
+                    while ((row = mysql_fetch_row(r))) {
+                        hours.push_back(crow::json::wvalue(std::stoi(row[0])));
+                        counts.push_back(crow::json::wvalue(std::stoi(row[1])));
+                    }
+                    mysql_free_result(r);
+                }
+            }
+        }
+        res["hours"] = std::move(hours);
+        res["counts"] = std::move(counts);
+        return crow::response(res);
     });
 
     CROW_ROUTE(app, "/api/report/prediction").methods("GET"_method)([](const crow::request& req) {

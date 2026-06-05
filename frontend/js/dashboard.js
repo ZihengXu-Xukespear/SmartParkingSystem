@@ -352,6 +352,42 @@ async function loadInterceptionCount() {
     }
 }
 
+async function loadHeatmap() {
+    const container = document.getElementById('heatmap-chart');
+    if (!container) return;
+    const res = await get('/api/report/hourly');
+    if (!res || !res.ok || !res.data.hours || !res.data.counts) {
+        container.innerHTML = '<p style="color:#999;text-align:center;">暂无数据</p>';
+        return;
+    }
+    const hours = res.data.hours.map(String);
+    const counts = res.data.counts;
+    if (hours.length === 0) { container.innerHTML = '<p style="color:#999;text-align:center;">暂无数据</p>'; return; }
+
+    if (typeof echarts === 'undefined') { container.innerHTML = '<p style="color:#999;text-align:center;">图表库加载中...</p>'; return; }
+    const chart = echarts.init(container);
+    const maxVal = Math.max(...counts);
+    chart.setOption({
+        tooltip: { trigger: 'axis', formatter: params => params[0].name + '时<br>入场: ' + params[0].value + ' 辆' },
+        grid: { left: 30, right: 10, top: 10, bottom: 25 },
+        xAxis: { type: 'category', data: hours.map(h => h + '时'), axisLabel: { fontSize: 10, interval: 2 } },
+        yAxis: { type: 'value', show: false, min: 0 },
+        series: [{
+            type: 'bar', data: counts,
+            itemStyle: {
+                color: params => {
+                    const v = params.value;
+                    const r = Math.round(200 - (v / maxVal) * 150);
+                    const g = Math.round(130 + (v / maxVal) * 70);
+                    return `rgb(${r},${g},70)`;
+                },
+                borderRadius: [2, 2, 0, 0]
+            },
+            barWidth: '70%'
+        }]
+    });
+}
+
 async function handleCheckIn() {
     const plate = document.getElementById('plate-input').value.trim();
     const billingSel = document.getElementById('billing-type');
@@ -500,6 +536,7 @@ loadParkingSettings();
 loadRecentRecords();
 loadBalance();
 loadBulletin();
+loadHeatmap();
 loadPrediction();
 loadInterceptionCount();
 loadParkedVehicles();
