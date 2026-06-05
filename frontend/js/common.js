@@ -64,6 +64,23 @@ function checkAuth() {
     return JSON.parse(user);
 }
 
+// 演示模式：检测 URL 参数 ?demo=1，显示页面说明横幅
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('demo') === '1') {
+        const pageNames = {
+            'dashboard': '主面板', 'parking': '停车场管理', 'checkin': '车辆入库',
+            'vehicles': '车辆信息', 'admin': '管理页面', 'reservation': '预约管理',
+            'recognize': '车牌识别', 'chat': '联系客服', 'profile': '个人中心'
+        };
+        const name = pageNames[window.location.pathname.split('/').pop().replace('.html','')] || '当前页面';
+        const banner = document.createElement('div');
+        banner.style.cssText = 'background:#e6f7ff;border-bottom:2px solid #91d5ff;padding:10px 20px;text-align:center;font-size:14px;color:#1890ff;position:sticky;top:0;z-index:999;';
+        banner.innerHTML = `📖 演示模式：${name} — 点击 <a href="/dashboard.html" style="color:#ff4d4f;font-weight:600;">返回主面板</a> 继续导览`;
+        document.body.prepend(banner);
+    }
+})();
+
 // 获取用户信息
 function getUser() {
     const user = sessionStorage.getItem('user');

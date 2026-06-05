@@ -364,14 +364,63 @@ async function startDemo() {
     document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
     showModal('receipt-modal');
     setDot(4, 'done');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 演示完成！电子小票已生成</span>';
+    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 演示完成！系统导览已就绪</span>';
 
     loadRecentRecords();
     loadBalance();
     loadParkedVehicles();
+
+    // Sidebar tour
+    await new Promise(r => setTimeout(r, 1200));
+    hideModal('receipt-modal');
+    await sidebarTour();
     demoRunning = false;
     btn.textContent = oldText;
     btn.disabled = false;
+}
+
+// ========== Sidebar Tour ==========
+const tourPages = [
+    { id: 'nav-dashboard', label: '主面板', desc: '停车场实时状态、快捷出入库、收入预测、套餐购买' },
+    { id: 'nav-parking', label: '停车场', desc: '多停车场管理、车位数与费率设置' },
+    { id: 'nav-checkin', label: '车辆入库', desc: '选择停车场和车位，手动入库' },
+    { id: 'nav-vehicles', label: '车辆信息', desc: '查询出入记录、在场车辆管理' },
+    { id: 'nav-admin', label: '管理页面', desc: '用户管理、套餐、计费规则、黑名单、消息管理' },
+    { id: 'nav-reservation', label: '预约管理', desc: '车位预约与历史预约查询' },
+    { id: 'nav-recognize', label: '车牌识别', desc: '摄像头抓拍自动识别车牌' },
+    { id: 'nav-chat', label: '联系客服', desc: '在线客服消息咨询' },
+];
+
+async function sidebarTour() {
+    const hint = document.getElementById('demo-hint');
+    const steps = document.getElementById('demo-steps');
+    for (const page of tourPages) {
+        const el = document.getElementById(page.id);
+        if (!el) continue;
+        el.classList.add('demo-glow');
+        hint.innerHTML = `<span style="color:#1890ff;">👉 ${page.label}：${page.desc} <span style="font-size:11px;color:#999;">（点击可跳转）</span></span>`;
+
+        // Wait for user click OR timeout
+        const clicked = await new Promise(resolve => {
+            const handler = (e) => { e.preventDefault(); el.removeEventListener('click', handler); resolve(true); };
+            el.addEventListener('click', handler);
+            setTimeout(() => { el.removeEventListener('click', handler); resolve(false); }, 2500);
+        });
+        el.classList.remove('demo-glow');
+
+        if (clicked) {
+            // Navigate to that page with demo flag
+            const href = el.getAttribute('href');
+            if (href) {
+                const sep = href.includes('?') ? '&' : '?';
+                window.location.href = href + sep + 'demo=1';
+                await new Promise(() => {}); // never resolves (navigation)
+            }
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    hint.innerHTML = '<span style="color:#52c41a;">✅ 系统导览结束，你可以自由探索各个功能页面了</span>';
+    steps.style.display = 'none';
 }
 
 async function loadBulletin() {
