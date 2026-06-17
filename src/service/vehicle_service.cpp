@@ -264,7 +264,7 @@ bool VehicleService::checkOut(const std::string& plate, int userId, double& fee,
     }
 
     sql = "SELECT id,license_plate,check_in_time,check_out_time,fee,location,billing_type,"
-        "'' AS duration,COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0) FROM CAR_RECORD WHERE id=" +
+        "CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE,check_in_time,check_out_time)/60),'小时',MOD(TIMESTAMPDIFF(MINUTE,check_in_time,check_out_time),60),'分') AS duration,COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0) FROM CAR_RECORD WHERE id=" +
         std::to_string(rec_id);
     if (mysql_query(mysql, sql.c_str()) == 0) {
         res = mysql_store_result(mysql);
