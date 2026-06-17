@@ -132,7 +132,8 @@
                             <label>车牌号</label>
                             <div class="plate-input-group">
                                 <input type="text" id="plate-input" class="form-control" placeholder="例: 京A12345" maxlength="10">
-                                <button class="btn btn-default btn-sm" onclick="handlePlateRecognize()" id="btn-plate-recognize" title="车牌识别">识别</button>
+                                <button class="btn btn-default btn-sm" onclick="document.getElementById('plate-upload-input').click()" id="btn-plate-recognize" title="上传图片识别车牌">📷 识别</button>
+                                <input type="file" id="plate-upload-input" accept="image/*" style="display:none" onchange="uploadAndRecognize(this)">
                             </div>
                         </div>
                         <div class="actions mt-2">

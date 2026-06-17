@@ -722,6 +722,26 @@ async function handlePlateRecognize() {
     else showError('vehicle-alert', res?.data?.error || res?.error || '识别失败');
 }
 
+async function uploadAndRecognize(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const base64 = e.target.result.split(',')[1];
+        if (!base64) { showError('vehicle-alert', '图片读取失败'); return; }
+        showSuccess('vehicle-alert', '⏳ 识别中...');
+        const res = await post('/api/plate/recognize-image', { image: base64 });
+        if (res && res.ok && res.data.plate_number) {
+            document.getElementById('plate-input').value = res.data.plate_number;
+            showSuccess('vehicle-alert', `✅ 识别成功: ${res.data.plate_number}`);
+        } else {
+            showError('vehicle-alert', res.data?.recognize_message || '未识别到车牌');
+        }
+        input.value = '';
+    };
+    reader.readAsDataURL(file);
+}
+
 // ========== Recharge ==========
 function openRechargeModal() {
     document.getElementById('recharge-amount').value = 100;
