@@ -176,6 +176,20 @@ async function quickCheckin() {
     }
 }
 
+function showReceipt(plate, data) {
+    const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
+    const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
+    const duration = data.record ? data.record.duration : (data.duration || '');
+    const fee = data.fee || 0;
+    document.getElementById('receipt-plate').textContent = plate;
+    document.getElementById('receipt-in').textContent = formatDateTime(inTime);
+    document.getElementById('receipt-out').textContent = formatDateTime(outTime);
+    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-billing').textContent = '标准计费';
+    document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
+    showModal('receipt-modal');
+}
+
 async function quickCheckout() {
     if (!lastRecognizedPlate) return;
     const res = await post('/api/vehicle/checkout', {
@@ -183,6 +197,7 @@ async function quickCheckout() {
     });
     if (res && res.ok) {
         showSuccess('result-alert', `车辆 ${lastRecognizedPlate} 出库成功！费用: ${formatFee(res.data.fee)}`);
+        showReceipt(lastRecognizedPlate, res.data);
         document.getElementById('btn-quick-checkout').style.display = 'none';
         document.getElementById('btn-quick-checkin').style.display = '';
     } else {
