@@ -124,6 +124,29 @@
                 <!-- Left Column -->
                 <div class="col-2">
 
+                    <!-- Find My Car -->
+                    <div class="card">
+                        <div class="card-title">🔍 车辆定位</div>
+                        <div id="find-car-alert"></div>
+                        <div class="plate-input-group">
+                            <input type="text" id="find-plate-input" class="form-control" placeholder="输入车牌号查找车辆位置" maxlength="10" style="flex:1;">
+                            <button class="btn btn-primary btn-sm" onclick="findMyCar()">查找</button>
+                        </div>
+                        <div id="find-car-result" style="margin-top:8px;font-size:13px;display:none;">
+                            <div style="background:#f0f5ff;border-radius:8px;padding:12px;border:1px solid #d6e4ff;">
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                    <strong id="find-car-plate" style="font-size:16px;"></strong>
+                                    <span id="find-car-status" style="font-size:12px;padding:2px 8px;border-radius:10px;background:#52c41a;color:#fff;">在场</span>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:13px;color:#666;">
+                                    <span>📍 <span id="find-car-lot"></span></span>
+                                    <span>🅿️ <span id="find-car-spot"></span></span>
+                                    <span>⏱ <span id="find-car-time"></span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Quick Vehicle Check-in/Check-out -->
                     <div class="card" id="card-vehicle-ops">
                         <div class="card-title">快捷出入库 <a href="/checkin.html" style="font-size:12px;float:right;">选位入库 &raquo;</a></div>

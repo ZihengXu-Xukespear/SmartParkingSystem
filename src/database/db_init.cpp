@@ -59,6 +59,7 @@ bool DBInit::createTables(const AppConfig& cfg) {
         "  exit_deadline DATETIME DEFAULT NULL,"
         "  reservation_id INT DEFAULT NULL,"
         "  spot_number INT DEFAULT 0,"
+        "  user_id INT DEFAULT 0,"
         "  INDEX idx_plate (license_plate),"
         "  INDEX idx_checkin (check_in_time)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
@@ -299,6 +300,7 @@ bool DBInit::createTables(const AppConfig& cfg) {
     mysql_query(mysql, "ALTER TABLE CAR_RECORD ADD COLUMN reservation_id INT DEFAULT NULL");
     mysql_query(mysql, "ALTER TABLE CAR_RECORD ADD COLUMN spot_number INT DEFAULT 0");
     mysql_query(mysql, "ALTER TABLE CAR_RECORD ADD COLUMN P_name VARCHAR(255) DEFAULT '停车场1'");
+    mysql_query(mysql, "ALTER TABLE CAR_RECORD ADD COLUMN user_id INT DEFAULT 0");
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN prepaid DECIMAL(10,2) DEFAULT 0.00");
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD COLUMN spot_number INT DEFAULT 0");

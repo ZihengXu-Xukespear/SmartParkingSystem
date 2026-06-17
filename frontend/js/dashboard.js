@@ -742,6 +742,24 @@ async function uploadAndRecognize(input) {
     reader.readAsDataURL(file);
 }
 
+async function findMyCar() {
+    const plate = document.getElementById('find-plate-input').value.trim();
+    if (!plate) { showError('find-car-alert', '请输入车牌号'); return; }
+    const res = await get('/api/vehicle/find?plate=' + encodeURIComponent(plate));
+    const resultDiv = document.getElementById('find-car-result');
+    if (res && res.ok) {
+        document.getElementById('find-car-plate').textContent = res.data.license_plate;
+        document.getElementById('find-car-lot').textContent = res.data.P_name;
+        document.getElementById('find-car-spot').textContent = (res.data.spot_number || 0) > 0 ? res.data.spot_number + ' 号车位' : '未分配';
+        document.getElementById('find-car-time').textContent = formatDateTime(res.data.check_in_time);
+        resultDiv.style.display = 'block';
+        document.getElementById('find-car-alert').innerHTML = '';
+    } else {
+        resultDiv.style.display = 'none';
+        showError('find-car-alert', res?.data?.error || '查询失败');
+    }
+}
+
 // ========== Recharge ==========
 function openRechargeModal() {
     document.getElementById('recharge-amount').value = 100;
@@ -848,6 +866,7 @@ async function addParkingLot() {
 }
 
 document.getElementById('plate-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleCheckIn(); });
+document.getElementById('find-plate-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') findMyCar(); });
 document.getElementById('parked-search-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadParkedVehicles(); });
 
 // Init

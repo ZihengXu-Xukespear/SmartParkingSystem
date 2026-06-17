@@ -11,14 +11,14 @@ VehicleService& VehicleService::instance() {
 }
 
 bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, std::string& error) {
-    return checkIn(plate, billing_type, "", 0, error);
+    return checkIn(plate, billing_type, "", 0, 0, error);
 }
 
 bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, std::string& error) {
-    return checkIn(plate, billing_type, P_name, 0, error);
+    return checkIn(plate, billing_type, P_name, 0, 0, error);
 }
 
-bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, std::string& error) {
+bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, int userId, std::string& error) {
     if (!validatePlate(plate)) { error = "车牌号格式不正确"; return false; }
 
     std::string blReason;
@@ -135,16 +135,57 @@ bool VehicleService::checkIn(const std::string& plate, const std::string& billin
         quote(mysql, parkingName) + " AND P_current_count + P_reserve_count < P_total_count";
     if (executeQueryAffected(mysql, sql) <= 0) { error = "停车场已满"; return false; }
 
+    std::string userCol = userId > 0 ? ",user_id" : "";
+    std::string userVal = userId > 0 ? "," + std::to_string(userId) : "";
     std::string spotCol = spotNumber > 0 ? ",spot_number" : "";
     std::string spotVal = spotNumber > 0 ? "," + std::to_string(spotNumber) : "";
 
-    sql = "INSERT INTO CAR_RECORD (license_plate,check_in_time,location,billing_type,reservation_id,P_name" + spotCol + ") VALUES (" +
+    sql = "INSERT INTO CAR_RECORD (license_plate,check_in_time,location,billing_type,reservation_id,P_name" + userCol + spotCol + ") VALUES (" +
         quote(mysql, plate) + ",NOW()," + quote(mysql, parkingName) + "," +
         quote(mysql, billing_type) + "," + std::to_string(reservationId) + "," +
-        quote(mysql, parkingName) + spotVal + ")";
+        quote(mysql, parkingName) + userVal + spotVal + ")";
     if (mysql_query(mysql, sql.c_str()) != 0) { error = "插入记录失败"; return false; }
 
     if (!tx.commit()) { error = "事务提交失败"; return false; }
+    return true;
+}
+
+bool VehicleService::findCar(const std::string& plate, int userId, const std::string& role, CarRecord& record, std::string& error) {
+    auto conn = getConnection();
+    if (!conn) { error = "数据库连接失败"; return false; }
+    MYSQL* mysql = conn->get();
+
+    // Check if the car is currently parked
+    std::string sql = "SELECT id,license_plate,check_in_time,check_out_time,fee,location,billing_type,"
+        "COALESCE(P_name,location),COALESCE(spot_number,0),user_id FROM CAR_RECORD WHERE license_plate=" +
+        quote(mysql, plate) + " AND check_out_time IS NULL ORDER BY check_in_time DESC LIMIT 1";
+    if (mysql_query(mysql, sql.c_str()) != 0) { error = "查询失败"; return false; }
+    MYSQL_RES* res = mysql_store_result(mysql);
+    if (!res || mysql_num_rows(res) == 0) {
+        if (res) mysql_free_result(res);
+        error = "该车辆目前不在停车场内";
+        return false;
+    }
+    MYSQL_ROW row = mysql_fetch_row(res);
+    int recordUserId = row[9] ? std::stoi(row[9]) : 0;
+
+    // Regular users can only find their own car
+    if (role != "admin" && role != "root" && recordUserId != userId) {
+        mysql_free_result(res);
+        error = "您没有权限查询该车辆";
+        return false;
+    }
+
+    record.id = std::stoi(row[0]);
+    record.license_plate = row[1] ? row[1] : "";
+    record.check_in_time = row[2] ? row[2] : "";
+    record.check_out_time = row[3] ? row[3] : "";
+    record.fee = row[4] ? std::stod(row[4]) : 0.0;
+    record.location = row[5] ? row[5] : "";
+    record.billing_type = row[6] ? row[6] : "standard";
+    record.P_name = row[7] ? row[7] : "";
+    record.spot_number = row[8] ? std::stoi(row[8]) : 0;
+    mysql_free_result(res);
     return true;
 }
 

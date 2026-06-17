@@ -8,6 +8,7 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/vehicle/checkin").methods("POST"_method)([](const crow::request& req) {
         if (!BaseController::checkPermission(req, Permissions::VEHICLE_CHECKIN))
             return BaseController::errorResponse(403, "权限不足");
+        auto auth = BaseController::authenticate(req);
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
 
@@ -18,7 +19,7 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
         int spotNum = body.has("spot_number") ? body["spot_number"].i() : 0;
 
         std::string error;
-        if (!VehicleService::instance().checkIn(plate, billing_type, P_name, spotNum, error))
+        if (!VehicleService::instance().checkIn(plate, billing_type, P_name, spotNum, auth.first, error))
             return BaseController::errorResponse(400, error);
 
         crow::json::wvalue res;
@@ -71,6 +72,26 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
         crow::json::wvalue res;
         res["records"] = BaseController::toJsonArray(records);
         res["total"] = (int)records.size();
+        return crow::response(res);
+    });
+
+    CROW_ROUTE(app, "/api/vehicle/find").methods("GET"_method)([](const crow::request& req) {
+        if (!BaseController::isAuthenticated(req))
+            return BaseController::errorResponse(401, "请先登录");
+        auto auth = BaseController::authenticate(req);
+        std::string plate = req.url_params.get("plate") ? req.url_params.get("plate") : "";
+        if (plate.empty()) return BaseController::errorResponse(400, "请输入车牌号");
+
+        CarRecord record;
+        std::string error;
+        if (!VehicleService::instance().findCar(plate, auth.first, auth.second, record, error))
+            return BaseController::errorResponse(404, error);
+
+        crow::json::wvalue res;
+        res["license_plate"] = record.license_plate;
+        res["P_name"] = record.P_name;
+        res["spot_number"] = record.spot_number;
+        res["check_in_time"] = record.check_in_time;
         return crow::response(res);
     });
 

@@ -13,11 +13,12 @@ public:
     static VehicleService& instance();
     bool checkIn(const std::string& plate, const std::string& billing_type, std::string& error);
     bool checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, std::string& error);
-    bool checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, std::string& error);
+    bool checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, int userId, std::string& error);
     bool checkOut(const std::string& plate, int userId, double& fee, CarRecord& record, std::string& error);
     std::vector<CarRecord> queryRecords(const std::string& plate, const std::string& start_date, const std::string& end_date);
     bool deleteRecord(int id);
     std::vector<CarRecord> getParkedVehicles(const std::string& plate_filter = "");
+    bool findCar(const std::string& plate, int userId, const std::string& role, CarRecord& record, std::string& error);
 
 protected:
     CarRecord mapRow(MYSQL_ROW row) override;
