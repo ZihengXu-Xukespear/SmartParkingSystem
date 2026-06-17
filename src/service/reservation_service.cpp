@@ -8,18 +8,7 @@ ReservationService& ReservationService::instance() {
 }
 
 void ReservationService::cleanExpiredReservations() {
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastCleanup_).count();
-    if (elapsed < 30) return;  // Throttle to every 30 seconds
-    lastCleanup_ = now;
-
-    auto conn = getConnection();
-    if (!conn) return;
-    MYSQL* mysql = conn->get();
-    int expire_min = AppConfig::instance().notice_expire_minutes;
-    std::string sql = "UPDATE RESERVATION SET status='expired' WHERE status='active' AND created_at < DATE_SUB(NOW(), INTERVAL " +
-        std::to_string(expire_min) + " MINUTE)";
-    mysql_query(mysql, sql.c_str());
+    // Auto-expiry disabled — users must cancel reservations manually
 }
 
 bool ReservationService::create(const std::string& plate, const std::string& P_name, int userId, std::string& error) {

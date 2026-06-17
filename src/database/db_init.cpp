@@ -322,14 +322,7 @@ bool DBInit::createTables(const AppConfig& cfg) {
     mysql_query(mysql, "ALTER TABLE RESERVATION DROP INDEX idx_plate");
     mysql_query(mysql, "ALTER TABLE RESERVATION ADD INDEX idx_plate (license_plate)");
 
-    // Clean expired reservations synchronously instead of relying on MySQL event scheduler
-    // (event scheduler requires SUPER privilege which may not be available)
-    {
-        int expire_min = AppConfig::instance().notice_expire_minutes;
-        std::string cleanSql = "UPDATE RESERVATION SET status='expired' WHERE status='active' AND created_at < DATE_SUB(NOW(), INTERVAL " +
-            std::to_string(expire_min) + " MINUTE)";
-        mysql_query(mysql, cleanSql.c_str());
-    }
+    // Auto-expiry disabled — users must cancel reservations manually
 
     return true;
 }

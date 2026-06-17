@@ -55,13 +55,14 @@ inline std::unordered_set<std::string> getPermissionsForRole(const std::string& 
         for (auto p : ALL) all.insert(p);
         return all;
     }
-    // "user" — regular users: view parking, billing, own records, reservations, balance
+    // "user" — regular users: view parking, billing, own records, reservations, balance, check-in
     return {
         PARKING_VIEW,
         BILLING_VIEW,
         RESERVATION_CREATE, RESERVATION_VIEW, RESERVATION_CANCEL,
         BALANCE_VIEW,
-        MESSAGE_SEND
+        MESSAGE_SEND,
+        VEHICLE_CHECKIN
     };
 }
 
