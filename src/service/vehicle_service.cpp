@@ -458,7 +458,11 @@ double VehicleService::calculateFee(MYSQL* mysql, const std::string& plate, cons
         fee = hours * hourly_rate;
     }
 
-    if (max_daily_fee > 0 && fee > max_daily_fee) fee = max_daily_fee;
+    if (max_daily_fee > 0) {
+        int days = std::max(1, (int)std::ceil(duration_min / (24.0 * 60)));
+        double maxTotal = max_daily_fee * days;
+        if (fee > maxTotal) fee = maxTotal;
+    }
 
     fee = std::round(fee * 100.0) / 100.0;
     return fee;

@@ -233,8 +233,10 @@ double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::s
     double hours = std::ceil(chargeMinutes / 60.0);
     double fee = hours * rule.hourly_rate;
 
-    if (fee > rule.max_daily_fee) {
-        fee = rule.max_daily_fee;
+    if (rule.max_daily_fee > 0) {
+        int days = std::max(1, (int)std::ceil(chargeMinutes / (24.0 * 60)));
+        double maxTotal = rule.max_daily_fee * days;
+        if (fee > maxTotal) fee = maxTotal;
     }
 
     return fee;

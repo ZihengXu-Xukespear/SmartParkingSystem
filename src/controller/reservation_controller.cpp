@@ -22,8 +22,7 @@ void ReservationController::registerRoutes(crow::SimpleApp& app) {
         if (!ReservationService::instance().create(plate, P_name, auth.first, spotNum, error))
             return BaseController::errorResponse(400, error);
 
-        int expire_min = AppConfig::instance().notice_expire_minutes;
-        return BaseController::successResponse("预约成功，请在" + std::to_string(expire_min) + "分钟内到达");
+        return BaseController::successResponse("预约成功，入场后自动完成，无需时可手动取消");
     });
 
     CROW_ROUTE(app, "/api/reservation/list").methods("GET"_method)([](const crow::request& req) {
