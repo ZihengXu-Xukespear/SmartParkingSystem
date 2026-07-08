@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能入库 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .status-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:600; }
+        .status-badge.green { background:#d4edda; color:#155724; }
+        .status-badge.red { background:#f8d7da; color:#721c24; }
+        .status-badge.yellow { background:#fff3cd; color:#856404; }
+        .status-badge.blue { background:#d1ecf1; color:#0c5460; }
+        .result-card { background:#f9f9f9; border-radius:8px; padding:16px; margin-top:12px; }
+        .checkin-success { background:linear-gradient(135deg,#d4edda,#c3e6cb); border:1px solid #28a745; }
+        .checkin-warning { background:linear-gradient(135deg,#fff3cd,#ffeeba); border:1px solid #ffc107; }
+        .checkin-error { background:linear-gradient(135deg,#f8d7da,#f5c6cb); border:1px solid #dc3545; }
+        /* 车位地图样式（与管理员一致） */
+        .fp-spot { width:46px; height:46px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; cursor:pointer; transition:all 0.15s; border:2px solid transparent; user-select:none; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+        .fp-spot.available { background:#d4edda; color:#155724; border-color:#28a745; cursor:default; }
+        .fp-spot.occupied { background:#f8d7da; color:#721c24; border-color:#dc3545; cursor:not-allowed; }
+        .fp-spot.reserved { background:#fff3cd; color:#856404; border-color:#ffc107; cursor:not-allowed; }
+        .fp-spot.ev { background:#cce5ff; color:#004085; border-color:#2196F3; cursor:default; }
+        .fp-spot.ev.occupied { background:#cce5ff; color:#004085; border-color:#2196F3; cursor:not-allowed; opacity:0.6; }
+        /* 图例 */
+        .spot-legend { display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:8px 12px; background:#fafafa; border-radius:6px; border:1px solid #eef0f3; margin-bottom:10px; font-size:12px; color:#555; }
+        .spot-legend .lg-item { display:inline-flex; align-items:center; gap:6px; }
+        .spot-legend .swatch { display:inline-block; width:14px; height:14px; border-radius:3px; border:1px solid; vertical-align:middle; }
+        .spot-legend .sw-green { background:#d4edda; border-color:#28a745; }
+        .spot-legend .sw-blue  { background:#cce5ff; border-color:#2196F3; }
+        .spot-legend .sw-red   { background:#f8d7da; border-color:#dc3545; }
+        .spot-legend .sw-yellow{ background:#fff3cd; border-color:#ffc107; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+                <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>Smart Parking</h2>
+                <p>智慧停车管理系统</p>
+            </div>
+            <div class="sidebar-nav">
+                <a class="nav-item" id="nav-dashboard" href="/dashboard.html">
+                    <span class="icon">&#9776;</span> 主面板
+                </a>
+                <a class="nav-item" id="nav-parking" href="/parking.html">
+                    <span class="icon">&#127359;</span> 停车场
+                </a>
+                <a class="nav-item" id="nav-checkin" href="/checkin.html">
+                    <span class="icon">&#9971;</span> 车辆入库
+                </a>
+                <a class="nav-item active" id="nav-user-checkin" href="/user-checkin.html">
+                    <span class="icon">&#128664;</span> 智能入库
+                </a>
+                <a class="nav-item" id="nav-vehicles" href="/vehicles.html">
+                    <span class="icon">&#128663;</span> 车辆信息
+                </a>
+                <a class="nav-item" id="nav-billing" href="/billing-rules.html">
+                    <span class="icon">&#128176;</span> 计费规则
+                </a>
+                <a class="nav-item" id="nav-admin" href="/admin.html">
+                    <span class="icon">&#128100;</span> 管理页面
+                </a>
+                <a class="nav-item" id="nav-reservation" href="/reservation.html">
+                    <span class="icon">&#128197;</span> 预约管理
+                </a>
+                <a class="nav-item" id="nav-recognize" href="/recognize.html">
+                    <span class="icon">&#128247;</span> 车牌识别
+                </a>
+                <a class="nav-item" id="nav-profile" href="/profile.html">
+                    <span class="icon">&#128101;</span> 个人中心
+                </a>
+                <a class="nav-item" id="nav-chat" href="/chat.html">
+                    <span class="icon">&#128172;</span> 联系客服
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">U</div>
+                    <div>
+                        <div class="user-name">用户</div>
+                        <div class="user-role">普通用户</div>
+                    </div>
+                </div>
+                <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+                <div class="main-content">
+            <div class="page-header">
+                <h1>智能入库</h1>
+                <p>通过车牌识别自动判断预约状态，快速完成车辆入库</p>
+            </div>
+            <div id="alert-box"></div>
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+                <label style="font-size:14px;font-weight:600;">停车场：</label>
+                <select id="lot-selector" class="form-control" style="width:220px;" onchange="onLotChange()"></select>
+                <span style="margin-left:auto;font-size:13px;color:#666;">
+                    空余车位：<strong id="lot-available" style="color:#52c41a">-</strong>
+                </span>
+            </div>
+            <div class="row">
+                <div class="col-2">
+                                        <div class="card">
+                        <div class="card-title">摄像头识别</div>
+                        <div id="camera-container" style="text-align:center;background:#000;border-radius:8px;overflow:hidden;min-height:280px;display:flex;align-items:center;justify-content:center">
+                            <video id="camera-preview" autoplay playsinline style="max-width:100%;max-height:360px;display:none"></video>
+                            <canvas id="camera-canvas" style="display:none"></canvas>
+                            <p id="camera-placeholder" style="color:#999;font-size:14px">点击下方按钮开启摄像头</p>
+                        </div>
+                        <div class="actions mt-2" style="display:flex;gap:10px;flex-wrap:wrap">
+                            <button class="btn btn-primary" id="btn-start-camera" onclick="startCamera()">开启摄像头</button>
+                            <button class="btn btn-success" id="btn-capture" onclick="captureAndRecognize()" disabled>拍照识别</button>
+                            <button class="btn btn-default" id="btn-stop-camera" onclick="stopCamera()" disabled>关闭摄像头</button>
+                        </div>
+                    </div>
+                                        <div class="card">
+                        <div class="card-title">🅿️ 车位地图
+                            <span style="font-weight:normal;font-size:13px;color:#999;margin-left:8px;">实时状态</span>
+                        </div>
+                        <div class="spot-legend">
+                            <div class="lg-item"><span class="swatch sw-green"></span> 绿色：普通车位</div>
+                            <div class="lg-item"><span class="swatch sw-blue"></span> 蓝色：充电车位</div>
+                            <div class="lg-item"><span class="swatch sw-yellow"></span> 已预约</div>
+                            <div class="lg-item"><span class="swatch sw-red"></span> 已占用</div>
+                        </div>
+                        <div id="spot-map" style="display:flex;flex-wrap:wrap;gap:6px;max-height:360px;overflow-y:auto;"></div>
+                    </div>
+                                        <div class="card">
+                        <div class="card-title">手动输入</div>
+                        <div class="form-row" style="gap:8px">
+                            <input type="text" id="manual-plate" class="form-control" placeholder="手动输入车牌号（如京A12345）" maxlength="10" style="flex:1">
+                            <button class="btn btn-primary" onclick="manualCheckin()">查询并入库</button>
+                        </div>
+                    </div>
+                                        <div class="card">
+                        <div class="card-title">入库记录</div>
+                        <div id="history-container">
+                            <p style="color:#999;font-size:13px">暂无入库记录</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-1">
+                                        <div class="card">
+                        <div class="card-title">识别结果</div>
+                        <div id="result-container">
+                            <div id="result-placeholder" style="text-align:center;padding:40px 0;color:#999">
+                                <p style="font-size:48px;margin-bottom:12px">&#128664;</p>
+                                <p>等待识别或手动输入...</p>
+                            </div>
+                            <div id="result-content" style="display:none">
+                                <div id="result-alert"></div>
+                                <div style="font-size:28px;font-weight:bold;letter-spacing:4px;padding:10px;background:#f5f5f5;border-radius:6px;text-align:center" id="result-plate">-</div>
+                                <div style="margin-top:12px" id="registration-info"></div>
+                                <div id="checkin-result"></div>
+                                <div class="actions mt-2" id="result-actions" style="display:none">
+                                    <button class="btn btn-primary btn-block" id="btn-confirm-checkin" onclick="confirmCheckin()" style="display:none">确认入库</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+        <div class="modal-overlay" id="confirm-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>非预约车辆入库确认</h3>
+                <button class="modal-close" onclick="hideModal('confirm-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="text-align:center;padding:20px 0">
+                    <p style="font-size:16px;margin-bottom:12px">车牌号：<strong id="confirm-plate"></strong></p>
+                    <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:16px;text-align:left">
+                        <p style="font-size:14px;color:#856404;margin:0">⚠️ 非预约用户，可以放行，但出库时需要注册会员以付费。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" onclick="hideModal('confirm-modal')">取消</button>
+                <button class="btn btn-primary" onclick="doNonReservedCheckin()">确认入库</button>
+            </div>
+        </div>
+    </div>
+    <script src="/js/common.js"></script>
+    <script src="/js/user-checkin.js"></script>
+</body>
+</html>

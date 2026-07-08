@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计费规则 - Smart Parking</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .rule-card { border:1px solid #e8e8e8; border-radius:10px; padding:18px; margin-bottom:14px; transition:all 0.2s; }
+        .rule-card:hover { box-shadow:0 4px 12px rgba(0,0,0,0.08); }
+        .rule-type-tag { display:inline-block; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+        .type-standard { background:#e6f7ff; color:#1890ff; }
+        .type-tiered { background:#f9f0ff; color:#722ed1; }
+        .type-member { background:#f6ffed; color:#52c41a; }
+        .type-special { background:#fff7e6; color:#fa8c16; }
+        .rule-detail { display:flex; gap:20px; flex-wrap:wrap; margin-top:10px; }
+        .rule-detail-item { text-align:center; min-width:80px; }
+        .rule-detail-item .value { font-size:22px; font-weight:700; color:#333; }
+        .rule-detail-item .label { font-size:11px; color:#999; margin-top:2px; }
+        .tier-table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+        .tier-table th, .tier-table td { padding:6px 10px; border:1px solid #f0f0f0; text-align:center; }
+        .tier-table th { background:#fafafa; color:#666; font-weight:600; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-logo">
+                <h2>Smart Parking</h2>
+                <p>智慧停车管理系统</p>
+            </div>
+            <div class="sidebar-nav">
+                <a class="nav-item" id="nav-dashboard" href="/dashboard.html">
+                    <span class="icon">&#9776;</span> 主面板
+                </a>
+                <a class="nav-item" id="nav-parking" href="/parking.html">
+                    <span class="icon">&#127359;</span> 停车场
+                </a>
+                <a class="nav-item" id="nav-checkin" href="/checkin.html">
+                    <span class="icon">&#9971;</span> 车辆入库
+                </a>
+                <a class="nav-item" id="nav-user-checkin" href="/user-checkin.html">
+                    <span class="icon">&#128664;</span> 智能入库
+                </a>
+                <a class="nav-item" id="nav-vehicles" href="/vehicles.html">
+                    <span class="icon">&#128663;</span> 车辆信息
+                </a>
+                <a class="nav-item active" id="nav-billing" href="/billing-rules.html">
+                    <span class="icon">&#128176;</span> 计费规则
+                </a>
+                <a class="nav-item" id="nav-admin" href="/admin.html">
+                    <span class="icon">&#128100;</span> 管理页面
+                </a>
+                <a class="nav-item" id="nav-reservation" href="/reservation.html">
+                    <span class="icon">&#128197;</span> 预约管理
+                </a>
+                <a class="nav-item" id="nav-recognize" href="/recognize.html">
+                    <span class="icon">&#128247;</span> 车牌识别
+                </a>
+                <a class="nav-item" id="nav-profile" href="/profile.html">
+                    <span class="icon">&#128101;</span> 个人中心
+                </a>
+                <a class="nav-item" id="nav-chat" href="/chat.html">
+                    <span class="icon">&#128172;</span> 联系客服
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">U</div>
+                    <div>
+                        <div class="user-name">用户</div>
+                        <div class="user-role">普通用户</div>
+                    </div>
+                </div>
+                <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
+            </div>
+        </div>
+        <div class="main-content">
+            <div class="page-header">
+                <h1>计费规则</h1>
+                <p>查看各停车场的收费标准</p>
+            </div>
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+                <label style="font-size:14px;font-weight:600;">停车场：</label>
+                <select id="lot-selector" class="form-control" style="width:220px;" onchange="onLotChange()"></select>
+                <label style="font-size:14px;font-weight:600;margin-left:16px;">查看方式：</label>
+                <button class="btn btn-primary btn-sm" id="btn-filter-active" onclick="filterRules('active')">仅启用的规则</button>
+                <button class="btn btn-default btn-sm" id="btn-filter-all" onclick="filterRules('all')">全部规则</button>
+            </div>
+            <div id="rules-container">
+                <p style="color:#999">加载中...</p>
+            </div>
+                        <div class="card" style="margin-top:24px">
+                <div class="card-title">月卡套餐</div>
+                <div id="plans-container">
+                    <p style="color:#999">加载中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/js/common.js"></script>
+    <script src="/js/billing-rules.js"></script>
+</body>
+</html>

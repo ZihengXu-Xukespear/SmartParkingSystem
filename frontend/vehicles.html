@@ -14,7 +14,13 @@
                 <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
                 <a class="nav-item" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
                 <a class="nav-item" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
+                <a class="nav-item" id="nav-user-checkin" href="/user-checkin.html">
+                    <span class="icon">&#128664;</span> 智能入库
+                </a>
                 <a class="nav-item active" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
+                <a class="nav-item" id="nav-billing" href="/billing-rules.html">
+                    <span class="icon">&#128176;</span> 计费规则
+                </a>
                 <a class="nav-item" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
                 <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
                 <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
@@ -26,15 +32,12 @@
                 <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
             </div>
         </div>
-
         <div class="main-content">
             <div class="page-header">
                 <h1>车辆信息查询</h1>
                 <p>查询和管理停车记录</p>
             </div>
-
-            <!-- Search Bar -->
-            <div class="card">
+                        <div class="card">
                 <div class="card-title">搜索条件</div>
                 <div id="search-alert"></div>
                 <div class="form-row">
@@ -56,9 +59,7 @@
                     <button class="btn btn-default" onclick="resetSearch()">重 置</button>
                 </div>
             </div>
-
-            <!-- Records Table -->
-            <div class="card">
+                        <div class="card">
                 <div class="card-title">
                     车辆记录
                     <span id="record-count" style="float:right;font-weight:normal;font-size:13px;color:#999"></span>
@@ -75,18 +76,25 @@
                                 <th>停车场</th>
                                 <th>车位</th>
                                 <th>计费方式</th>
+                                <th>地图</th>
                                 <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="records-table">
-                            <tr><td colspan="9" class="loading">加载中...</td></tr>
+                            <tr><td colspan="10" class="loading">加载中...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
-
+        <div class="modal-overlay" id="spot-map-modal">
+        <div class="modal" style="max-width:560px;">
+            <div class="modal-header"><h3 id="spot-map-title">📍 车位地图</h3><button class="modal-close" onclick="hideModal('spot-map-modal')">&times;</button></div>
+            <div class="modal-body" style="text-align:center;padding:16px;overflow-x:auto;" id="spot-map-body"><p style="color:#999;">加载中...</p></div>
+            <div class="modal-footer" style="justify-content:center;"><button class="btn btn-default" onclick="hideModal('spot-map-modal')">关闭</button></div>
+        </div>
+    </div>
     <script src="/js/common.js"></script>
     <script src="/js/vehicles.js"></script>
 </body>

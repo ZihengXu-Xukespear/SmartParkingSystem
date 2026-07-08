@@ -1,8 +1,7 @@
-// Dashboard logic
+
 const user = checkAuth();
 if (user) initSidebar();
 let pieChart = null;
-
 function applyPermUI() {
     const canCheckIn = hasPerm('vehicle.checkin');
     const canCheckOut = hasPerm('vehicle.checkout');
@@ -12,11 +11,9 @@ function applyPermUI() {
         const btn = document.getElementById('btn-checkin');
         if (btn) btn.style.display = 'none';
     }
-    // Checkout moved to admin > vehicle management — always hide on dashboard
-    const btnCO = document.getElementById('btn-checkout');
+        const btnCO = document.getElementById('btn-checkout');
     if (btnCO) btnCO.style.display = 'none';
-    // Only admin can choose billing type — hide for regular users
-    const billingSel = document.getElementById('billing-type');
+        const billingSel = document.getElementById('billing-type');
     const billingLabel = billingSel?.parentElement?.querySelector('label');
     if (user.role === 'user' && billingSel) {
         billingSel.style.display = 'none';
@@ -24,17 +21,25 @@ function applyPermUI() {
     }
     const btnPlate = document.getElementById('btn-plate-recognize');
     if (btnPlate) btnPlate.style.display = hasPerm('plate.recognize') ? '' : 'none';
-
     document.getElementById('card-pass-plans').style.display = hasPerm('balance.view') ? '' : 'none';
-    document.getElementById('card-balance').style.display = hasPerm('balance.view') ? '' : 'none';
+            const isRegularUser = (user.role === 'user');
+    document.getElementById('card-balance').style.display = (hasPerm('balance.view') && isRegularUser) ? '' : 'none';
+    document.getElementById('card-my-billing').style.display = (hasPerm('balance.view') && isRegularUser) ? '' : 'none';
     document.getElementById('card-recent-records').style.display = hasPerm('vehicle.query') ? '' : 'none';
     document.getElementById('card-prediction').style.display = hasPerm('report.view') ? '' : 'none';
     document.getElementById('card-interceptions').style.display = hasPerm('vehicle.blacklist') ? '' : 'none';
     document.getElementById('card-plate-recognition').style.display = hasPerm('plate.recognize') ? '' : 'none';
     document.getElementById('card-parked-vehicles').style.display = hasPerm('vehicle.query') ? '' : 'none';
     document.getElementById('card-settings').style.display = hasPerm('parking.settings') ? '' : 'none';
+        if (user.role === 'user') {
+        const btnReport = document.getElementById('btn-report');
+        if (btnReport) btnReport.style.display = 'none';
+        const goalBar = document.getElementById('goal-bar');
+        if (goalBar) goalBar.style.display = 'none';
+        const heatmap = document.getElementById('card-heatmap');
+        if (heatmap) heatmap.style.display = 'none';
+    }
 }
-
 function initPieChart() {
     const dom = document.getElementById('pie-chart');
     if (!dom) return;
@@ -55,7 +60,6 @@ function initPieChart() {
         }]
     });
 }
-
 async function loadParkingLots() {
     const res = await get('/api/parking/list');
     const sel = document.getElementById('parking-selector');
@@ -65,33 +69,26 @@ async function loadParkingLots() {
         const avail = l.P_total_count - l.P_current_count - l.P_reserve_count;
         return `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)} (${avail}/${l.P_total_count})</option>`;
     }).join('');
-    // Default to first lot if not yet selected
-    if (lots.length > 0 && !sel.dataset.loaded) {
+        if (lots.length > 0 && !sel.dataset.loaded) {
         sel.dataset.loaded = '1';
         currentLot = lots[0].P_name;
         sel.value = currentLot;
     }
-    // Also update the checkin form's lot options
-    const checkinLot = document.getElementById('checkin-lot');
+        const checkinLot = document.getElementById('checkin-lot');
     if (checkinLot) {
         checkinLot.innerHTML = lots.map(l =>
-            `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`
-        ).join('');
+            `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`        ).join('');
     }
-    // Now that currentLot is set, load status and plans with the correct lot
-    loadStatus();
+        loadStatus();
     loadPassPlans();
 }
-
 let currentLot = '';
-
 function onParkingChange() {
     const sel = document.getElementById('parking-selector');
     if (sel) currentLot = sel.value;
     loadStatus();
     loadPassPlans();
 }
-
 async function loadStatus() {
     let url = '/api/parking/status';
     if (currentLot) url += '?P_name=' + encodeURIComponent(currentLot);
@@ -109,26 +106,20 @@ async function loadStatus() {
             { value: d.P_available_count, name: '剩余车位', itemStyle: { color: '#52c41a' } }
         ]}]});
     }
-    // Update goal bars
-    updateGoals(d);
+        updateGoals(d);
 }
-
 function updateGoals(d) {
     const occBar = document.getElementById('goal-occ-bar');
     const dailyBar = document.getElementById('goal-daily-bar');
     const monthBar = document.getElementById('goal-month-bar');
-    if (!occBar || !d) return;
-
-    // Occupancy rate
-    const total = d.P_total_count || 1;
+    if (!occBar || !d || user.role === 'user') return;
+        const total = d.P_total_count || 1;
     const occupied = d.P_current_count || 0;
     const occRate = Math.min(occupied / total * 100, 100);
     occBar.style.width = occRate + '%';
     occBar.style.background = occRate > 80 ? 'linear-gradient(90deg,#ff6b6b,#ee5a24)' : occRate > 50 ? 'linear-gradient(90deg,#f9ca24,#f0932b)' : 'linear-gradient(90deg,#2ed573,#00aa7f)';
     document.getElementById('goal-occ').textContent = Math.round(occRate) + '%';
-
-    // Daily income goal (target: capacity * fee * 8h * 60% utilization as daily target)
-    const targetDaily = total * d.P_fee * 8 * 0.6;
+        const targetDaily = total * d.P_fee * 8 * 0.6;
     get('/api/report/summary').then(r => {
         if (!r || !r.ok) return;
         const today = parseFloat(r.data.today_income || 0);
@@ -136,7 +127,6 @@ function updateGoals(d) {
         dailyBar.style.width = dailyPct + '%';
         dailyBar.style.background = 'linear-gradient(90deg,#a29bfe,#6c5ce7)';
         document.getElementById('goal-daily').textContent = '¥' + today.toFixed(0) + '/' + Math.round(targetDaily);
-
         const month = parseFloat(r.data.month_income || 0);
         const targetMonth = targetDaily * 30;
         const monthPct = Math.min(month / targetMonth * 100, 100);
@@ -145,11 +135,15 @@ function updateGoals(d) {
         document.getElementById('goal-month').textContent = '¥' + Math.round(month) + '/' + Math.round(targetMonth);
     });
 }
-
 async function loadRecentRecords() {
     const tbody = document.getElementById('recent-records');
     if (!tbody || !hasPerm('vehicle.query')) return;
     const res = await get('/api/vehicle/query');
+    if (!res || !res.ok || !res.data.records || res.data.records.length === 0) {
+        const hint = user.role === 'user' ? '暂无与您相关的记录' : '暂无记录';
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#999">${hint}</td></tr>`;
+        return;
+    }
     if (!res || !res.ok || !res.data.records || res.data.records.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999">暂无记录</td></tr>';
         return;
@@ -163,14 +157,18 @@ async function loadRecentRecords() {
             <td>${r.check_out_time ? '<span class="badge badge-success">已出库</span>' : '<span class="badge badge-primary">停放中</span>'}</td>
         </tr>`).join('');
 }
-
 let _parkedData = [];
-
 async function loadParkedVehicles() {
     const tbody = document.getElementById('parked-vehicles-list');
     if (!tbody || !hasPerm('vehicle.query')) return;
     const plate = document.getElementById('parked-search-input')?.value.trim() || '';
     const res = await get('/api/vehicle/parked' + (plate ? '?plate=' + encodeURIComponent(plate) : ''));
+    if (!res || !res.ok || !res.data.records || res.data.records.length === 0) {
+        const hint = user.role === 'user' ? '暂无与您相关的在场车辆' : '暂无在场车辆';
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#999">${hint}</td></tr>`;
+        _parkedData = [];
+        return;
+    }
     if (!res || !res.ok || !res.data.records || res.data.records.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999">暂无在场车辆</td></tr>';
         _parkedData = [];
@@ -186,7 +184,7 @@ async function loadParkedVehicles() {
             <td>${escapeHtml(r.P_name || r.location)}</td>
             <td>${r.spot_number ? r.spot_number+'号' : '-'}</td>
             <td>${formatDateTime(r.check_in_time)}</td>
-            <td><span style="color:${isOvertime?'#ff4d4f':'#666'};font-weight:${isOvertime?'600':'400'}">${r.duration || '计算中...'}${isOvertime?' ⚠️超24h':''}</span></td>
+            <td><span style="color:${isOvertime?'#ff4d4f':'#666'};font-weight:${isOvertime?'600':'400'}">${r.duration || (r.check_out_time ? computeDurationText(r.check_in_time, r.check_out_time) : '计算中...')}${isOvertime?' ⚠️超24h':''}</span></td>
             <td>
                 ${canCheckOut
                     ? `<button class="btn btn-danger btn-xs" onclick="quickCheckOutParked('${r.license_plate}')">出场</button>`
@@ -195,7 +193,6 @@ async function loadParkedVehicles() {
         </tr>`;
     }).join('');
 }
-
 function exportParked() {
     if (!_parkedData.length) { showError('parked-alert', '没有可导出的数据'); return; }
     let csv = '车牌号,停车场,车位号,入库时间,已停时长,状态\n';
@@ -211,7 +208,6 @@ function exportParked() {
     a.click();
     URL.revokeObjectURL(a.href);
 }
-
 async function quickCheckOutParked(plate) {
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
     if (res && res.ok) {
@@ -220,9 +216,10 @@ async function quickCheckOutParked(plate) {
         loadParkedVehicles(); loadStatus(); loadRecentRecords(); loadBalance();
     } else showError('parked-alert', res?.data?.error || '出库失败');
 }
-
 async function loadBalance() {
     if (!hasPerm('balance.view')) return;
+    const balCard = document.getElementById('card-balance');
+    if (balCard && balCard.style.display === 'none') return; 
     const res = await get('/api/balance');
     const balEl = document.getElementById('user-balance');
     const txEl = document.getElementById('balance-transactions');
@@ -234,12 +231,10 @@ async function loadBalance() {
                     <span style="color:${t.amount>0?'#52c41a':'#ff4d4f'}">${t.amount>0?'+':''}${parseFloat(t.amount).toFixed(2)}</span>
                     <span style="color:#999;margin-left:8px">${escapeHtml(t.description)}</span>
                     <span style="float:right;color:#bbb">${formatDateTime(t.created_at)}</span>
-                </div>`
-            ).join('') || '<p style="color:#999;font-size:12px">暂无交易记录</p>';
+                </div>`            ).join('') || '<p style="color:#999;font-size:12px">暂无交易记录</p>';
         }
     }
 }
-
 async function loadPassPlans() {
     const container = document.getElementById('pass-plans-container');
     if (!container || !hasPerm('balance.view')) return;
@@ -247,10 +242,31 @@ async function loadPassPlans() {
     if (currentLot) url += '?P_name=' + encodeURIComponent(currentLot);
     const res = await get(url);
     if (!res || !res.ok || !res.data.plans) {
+                if (currentLot) {
+            const fallback = await get('/api/pass-plans');
+            if (fallback && fallback.ok && fallback.data.plans && fallback.data.plans.length > 0) {
+                renderPassPlans(container, fallback.data.plans);
+                return;
+            }
+        }
         container.innerHTML = '<p style="color:#999">暂无可用套餐</p>';
         return;
     }
-    container.innerHTML = res.data.plans.map(p => `
+    if (res.data.plans.length === 0) {
+                if (currentLot) {
+            const fallback = await get('/api/pass-plans');
+            if (fallback && fallback.ok && fallback.data.plans && fallback.data.plans.length > 0) {
+                renderPassPlans(container, fallback.data.plans);
+                return;
+            }
+        }
+        container.innerHTML = '<p style="color:#999">暂无可用套餐</p>';
+        return;
+    }
+    renderPassPlans(container, res.data.plans);
+}
+function renderPassPlans(container, plans) {
+    container.innerHTML = plans.map(p => `
         <div class="pass-plan-card" style="border:1px solid #e8e8e8;border-radius:8px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all 0.2s"
              onmouseover="this.style.borderColor='#1890ff';this.style.boxShadow='0 2px 8px rgba(24,144,255,0.15)'"
              onmouseout="this.style.borderColor='#e8e8e8';this.style.boxShadow='none'"
@@ -266,8 +282,6 @@ async function loadPassPlans() {
         </div>
     `).join('');
 }
-
-// Purchase modal logic
 function openPurchaseModal(planId, planName, days, price, desc) {
     document.getElementById('purchase-plan-name').textContent = planName;
     document.getElementById('purchase-plan-desc').textContent = desc || (days+'天 | ¥'+price.toFixed(2));
@@ -277,236 +291,138 @@ function openPurchaseModal(planId, planName, days, price, desc) {
     document.getElementById('purchase-alert').innerHTML = '';
     showModal('purchase-modal');
 }
-
 async function confirmPurchase() {
     const planId = document.getElementById('purchase-plan-id').value;
     const plate = document.getElementById('purchase-plate').value.trim();
     if (!plate) { showError('purchase-alert', '请输入车牌号'); return; }
-
-    // Validate plate format
-    const valRes = await post('/api/plate/validate', { license_plate: plate });
+        const valRes = await post('/api/plate/validate', { license_plate: plate });
     if (valRes && valRes.ok && !valRes.data.valid) {
         showError('purchase-alert', valRes.data.message || '车牌号格式不正确');
         return;
     }
-
     const res = await post('/api/pass-plans/' + planId + '/purchase', { license_plate: plate });
     if (res && res.ok) {
         hideModal('purchase-modal');
         showSuccess('vehicle-alert', '套餐购买成功！');
         loadBalance();
+        loadMyBilling();
     } else {
         showError('purchase-alert', res?.data?.error || '购买失败');
     }
 }
-
-// ========== Demo Mode + Receipt ==========
-const demoProvinces = ['京','沪','粤','苏','浙','鲁','川','渝','闽','皖','湘','鄂'];
-const demoLetters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-let demoRunning = false;
-let demoStop = false;
-
-function stopDemo() {
-    demoStop = true;
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏹ 演示已停止</span>';
-    document.getElementById('btn-stop-demo').style.display = 'none';
-    document.getElementById('btn-demo').textContent = '▶ 演示模式';
-    document.getElementById('btn-demo').disabled = false;
-    // Remove any glows
-    document.querySelectorAll('.demo-glow').forEach(el => el.classList.remove('demo-glow'));
-    document.querySelectorAll('.demo-glow-btn').forEach(el => el.classList.remove('demo-glow-btn'));
+function daysLeft(endDateStr) {
+    if (!endDateStr) return null;
+    const end = new Date(endDateStr + 'T23:59:59');
+    if (isNaN(end)) return null;
+    return Math.max(0, Math.ceil((end - new Date()) / 86400000));
 }
-
-function randomPlate() {
-    let plate = demoProvinces[Math.floor(Math.random() * demoProvinces.length)];
-    plate += demoLetters[Math.floor(Math.random() * demoLetters.length)];
-    for (let i = 0; i < 5; i++) plate += Math.floor(Math.random() * 10);
-    return plate;
-}
-
-function setDot(idx, status) {
-    const dots = document.querySelectorAll('.demo-step-dot');
-    const colors = { active: '#1890ff', done: '#52c41a', fail: '#ff4d4f' };
-    dots.forEach((d, i) => {
-        if (i < idx) { d.style.background = '#52c41a'; d.style.color = '#fff'; }
-        else if (i === idx) { d.style.background = colors[status] || '#1890ff'; d.style.color = '#fff'; }
-        else { d.style.background = '#eee'; d.style.color = '#999'; }
-    });
-}
-
-function glow(el, hint, color) {
-    const c = color || '#1890ff';
-    el.classList.add('demo-glow');
-    el.style.borderColor = c;
-    document.getElementById('demo-hint').innerHTML = `<span style="color:${c};">👉 ${hint}</span>`;
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-function unglow(el) {
-    el.classList.remove('demo-glow');
-    el.style.borderColor = '';
-}
-
-function simulateClick(el) {
-    el.style.transform = 'scale(0.95)';
-    el.style.transition = 'all 0.1s';
-    setTimeout(() => { el.style.transform = ''; }, 150);
-}
-
-async function startDemo() {
-    if (demoRunning) return;
-    demoRunning = true;
-    demoStop = false;
-    const btn = document.getElementById('btn-demo');
-    const steps = document.getElementById('demo-steps');
-    const oldText = btn.textContent;
-    btn.textContent = '⏳ 演示中...';
-    btn.disabled = true;
-    steps.style.display = 'block';
-    document.getElementById('demo-hint').textContent = '';
-    document.getElementById('btn-stop-demo').style.display = 'inline-block';
-
-    const plate = randomPlate();
-    const input = document.getElementById('plate-input');
-
-    // ── Step 1: Fill plate ──
-    setDot(0, 'active');
-    glow(input, `正在生成车牌... ${plate}`);
-    await new Promise(r => setTimeout(r, 1200));
-    if (demoStop) { cleanupDemo(); return; }
-    input.value = plate;
-    input.style.borderColor = '#52c41a';
-    input.style.transition = 'border-color 0.3s';
-    setDot(0, 'done');
-    await new Promise(r => setTimeout(r, 400));
-    if (demoStop) { cleanupDemo(); return; }
-
-    // ── Step 2: Click check-in ──
-    const btnIn = document.getElementById('btn-checkin');
-    setDot(1, 'active');
-    unglow(input);
-    input.style.borderColor = '';
-    glow(btnIn, '点击"快速入库"按钮');
-    await new Promise(r => setTimeout(r, 1000));
-    if (demoStop) { cleanupDemo(); return; }
-    simulateClick(btnIn);
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">⏳ 正在请求入库...</span>';
-    let res = await post('/api/vehicle/checkin', { license_plate: plate, billing_type: 'standard' });
-    if (!res || !res.ok) { setDot(1, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 入库失败: ' + (res?.data?.error||'') + '</span>'; cleanupDemo(); return; }
-    unglow(btnIn);
-    setDot(1, 'done');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 入库成功！车辆已入场</span>';
-    await new Promise(r => setTimeout(r, 800));
-    if (demoStop) { cleanupDemo(); return; }
-
-    // ── Step 3: Parking countdown ──
-    setDot(2, 'active');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">⏱ 车辆停放中...</span>';
-    for (let i = 3; i > 0; i--) {
-        document.getElementById('demo-hint').innerHTML = `<span style="color:#1890ff;">⏱ 停车计时 ${i}秒...</span>`;
-        await new Promise(r => setTimeout(r, 1000));
-        if (demoStop) { cleanupDemo(); return; }
+async function loadMyBilling() {
+    const card = document.getElementById('card-my-billing');
+    if (!card || card.style.display === 'none') return;
+    const box = document.getElementById('my-billing-content');
+    if (!box) return;
+        let myPasses = [];
+    const passRes = await get(`/api/parking/monthly-passes?user_id=${user.id}`);
+    if (passRes && passRes.ok && Array.isArray(passRes.data.passes)) {
+        myPasses = passRes.data.passes.filter(p => p.user_id === user.id && p.is_active);
     }
-    setDot(2, 'done');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 停车结束</span>';
-    await new Promise(r => setTimeout(r, 400));
-    if (demoStop) { cleanupDemo(); return; }
-
-    // ── Step 4: Click check-out ──
-    const btnOut = document.getElementById('btn-checkout');
-    setDot(3, 'active');
-    glow(btnOut, '点击"车辆出库"按钮', '#ff4d4f');
-    await new Promise(r => setTimeout(r, 1000));
-    if (demoStop) { cleanupDemo(); return; }
-    simulateClick(btnOut);
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">⏳ 正在出库计费...</span>';
-    res = await post('/api/vehicle/checkout', { license_plate: plate });
-    if (!res || !res.ok) { setDot(3, 'fail'); document.getElementById('demo-hint').innerHTML = '<span style="color:#ff4d4f;">❌ 出库失败: ' + (res?.data?.error||'') + '</span>'; cleanupDemo(); return; }
-    const data = res.data;
-    const fee = data.fee || 0;
-    unglow(btnOut);
-    setDot(3, 'done');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 出库成功，费用: ¥' + parseFloat(fee).toFixed(2) + '</span>';
-    await new Promise(r => setTimeout(r, 600));
-
-    // ── Step 5: Receipt ──
-    setDot(4, 'active');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#1890ff;">📄 正在生成电子小票...</span>';
-    await new Promise(r => setTimeout(r, 600));
-    showReceipt(plate, data);
-    setDot(4, 'done');
-    document.getElementById('demo-hint').innerHTML = '<span style="color:#52c41a;">✅ 演示完成！系统导览已就绪</span>';
-
-    loadRecentRecords();
-    loadBalance();
-    loadParkedVehicles();
-
-    // Sidebar tour
-    await new Promise(r => setTimeout(r, 1200));
-    hideModal('receipt-modal');
-    if (!demoStop) await sidebarTour();
-    cleanupDemo();
-}
-
-function cleanupDemo() {
-    document.getElementById('btn-stop-demo').style.display = 'none';
-    demoRunning = false;
-    document.getElementById('btn-demo').textContent = '▶ 演示模式';
-    document.getElementById('btn-demo').disabled = false;
-    document.querySelectorAll('.demo-glow, .demo-glow-btn').forEach(el => {
-        el.classList.remove('demo-glow', 'demo-glow-btn');
-        el.style.borderColor = '';
-        el.style.transform = '';
-    });
-}
-
-// ========== Sidebar Tour ==========
-const tourPages = [
-    { id: 'nav-dashboard', label: '主面板', desc: '停车场实时状态、快捷出入库、收入预测、套餐购买' },
-    { id: 'nav-parking', label: '停车场', desc: '多停车场管理、车位数与费率设置' },
-    { id: 'nav-checkin', label: '车辆入库', desc: '选择停车场和车位，手动入库' },
-    { id: 'nav-vehicles', label: '车辆信息', desc: '查询出入记录、在场车辆管理' },
-    { id: 'nav-admin', label: '管理页面', desc: '用户管理、套餐、计费规则、黑名单、消息管理' },
-    { id: 'nav-reservation', label: '预约管理', desc: '车位预约与历史预约查询' },
-    { id: 'nav-recognize', label: '车牌识别', desc: '摄像头抓拍自动识别车牌' },
-    { id: 'nav-chat', label: '联系客服', desc: '在线客服消息咨询' },
-];
-
-async function sidebarTour() {
-    const hint = document.getElementById('demo-hint');
-    const steps = document.getElementById('demo-steps');
-    for (const page of tourPages) {
-        if (demoStop) return;
-        const el = document.getElementById(page.id);
-        if (!el) continue;
-        el.classList.add('demo-glow');
-        hint.innerHTML = `<span style="color:#1890ff;">👉 ${page.label}：${page.desc} <span style="font-size:11px;color:#999;">（点击可跳转）</span></span>`;
-
-        // Wait for user click OR timeout
-        const clicked = await new Promise(resolve => {
-            const handler = (e) => { e.preventDefault(); el.removeEventListener('click', handler); resolve(true); };
-            el.addEventListener('click', handler);
-            setTimeout(() => { el.removeEventListener('click', handler); resolve(false); }, 2500);
-        });
-        el.classList.remove('demo-glow');
-
-        if (clicked) {
-            // Navigate to that page with demo flag
-            const href = el.getAttribute('href');
-            if (href) {
-                const sep = href.includes('?') ? '&' : '?';
-                window.location.href = href + sep + 'demo=1';
-                await new Promise(() => {}); // never resolves (navigation)
-            }
-        }
-        await new Promise(r => setTimeout(r, 300));
+    if (myPasses.length > 0) {
+        box.innerHTML = myPasses.map(renderMyPassItem).join('');
+        return;
     }
-    if (!demoStop) {
-        hint.innerHTML = '<span style="color:#52c41a;">✅ 系统导览结束，你可以自由探索各个功能页面了</span>';
-        steps.style.display = 'none';
+        let rule = null;
+    const ruleRes = await get('/api/parking/billing-rules');
+    if (ruleRes && ruleRes.ok && Array.isArray(ruleRes.data.rules)) {
+        rule = ruleRes.data.rules.find(r => r.is_active) || null;
+    }
+    box.innerHTML = renderMyBillingRule(rule);
+}
+function renderMyPassItem(p) {
+    const dl = daysLeft(p.end_date);
+    const expiring = (dl !== null && dl <= 3);
+    const leftTxt = (dl === null) ? '有效' : (dl <= 0 ? '今日到期' : `剩余 ${dl} 天`);
+    const lotTxt = p.P_name ? `<span style="color:#1890ff;font-size:12px;margin-left:6px">${escapeHtml(p.P_name)}</span>` : '';
+    return `
+        <div style="border:1px solid #d6f0ff;background:linear-gradient(135deg,#e6f7ff 0%,#f6ffed 100%);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <div><span style="font-size:16px">🎫</span>
+                    <strong style="font-size:15px;color:#1890ff;margin-left:4px">${escapeHtml(p.pass_type || '套餐')}</strong>${lotTxt}</div>
+                <span class="badge ${expiring ? 'badge-danger' : 'badge-success'}" style="font-size:11px">${leftTxt}</span>
+            </div>
+            <div style="font-size:12px;color:#666;margin-top:8px">车牌：<b style="letter-spacing:1px">${escapeHtml(p.license_plate)}</b></div>
+            <div style="font-size:12px;color:#666">有效期：${formatDate(p.start_date)} ~ ${formatDate(p.end_date)}</div>
+            <div style="border-top:1px dashed #b7d8ff;margin:8px 0;padding-top:8px;font-size:12px;color:#52c41a">
+                💰 套餐有效期内停车免费${p.fee ? `（已预付 ¥${parseFloat(p.fee).toFixed(2)}）` : ''}
+            </div>
+        </div>`;
+}
+function renderMyBillingRule(rule) {
+    if (!rule) {
+        return `<div style="text-align:center;padding:14px;color:#999;font-size:13px">暂无有效套餐，也未配置计费规则</div>`;
+    }
+    const desc = rule.description || '';
+    const freeMin = (rule.free_minutes != null) ? rule.free_minutes : 30;
+    const rate = (rule.hourly_rate != null) ? parseFloat(rule.hourly_rate) : 5;
+    const cap = (rule.max_daily_fee != null) ? parseFloat(rule.max_daily_fee) : 0;
+    const chip = (big, small, color) =>
+        `<div style="flex:1;text-align:center;background:#fafafa;border-radius:8px;padding:8px 4px"><div style="font-size:14px;font-weight:600;color:${color}">${big}</div><div style="font-size:11px;color:#999">${small}</div></div>`;
+    const chips = [
+        chip(freeMin + ' 分', '免费时长', '#1890ff'),
+        chip('¥' + rate.toFixed(2), '每小时', '#fa8c16'),
+        cap > 0 ? chip('¥' + cap.toFixed(2), '每日封顶', '#ff4d4f') : ''
+    ].filter(Boolean).join('');
+    return `
+        <div style="border:1px solid #f0f0f0;border-radius:10px;padding:12px 14px">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="font-size:16px">🅿️</span>
+                <strong style="font-size:15px">${escapeHtml(rule.rule_name || '计费规则')}</strong>
+                <span style="font-size:11px;color:#fff;background:#1890ff;border-radius:10px;padding:1px 8px">按次计费</span>
+            </div>
+            ${desc ? `<p style="font-size:12px;color:#666;margin:8px 0">${escapeHtml(desc)}</p>` : ''}
+            <div style="display:flex;gap:8px;margin:8px 0">${chips}</div>
+            <div style="border-top:1px dashed #eee;margin-top:8px;padding-top:8px;font-size:12px;color:#1890ff">
+                💡 购买月卡 / 季卡 / 年卡可享包期优惠，停车更划算
+            </div>
+        </div>`;
+}
+async function loadMyPlates() {
+    const container = document.getElementById('my-plates-list');
+    if (!container) return;
+    const res = await get('/api/user/plates');
+    if (!res || !res.ok || !res.data.plates || res.data.plates.length === 0) {
+        container.innerHTML = '<p style="color:#999;font-size:13px">暂未绑定车牌，绑定后可快速查询和入库</p>';
+        return;
+    }
+    container.innerHTML = res.data.plates.map(p => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0">
+            <span style="font-weight:600;letter-spacing:2px">${escapeHtml(p.license_plate)}</span>
+            <button class="btn btn-danger btn-xs" onclick="unbindPlate(${p.id})" style="font-size:11px;padding:1px 8px">解绑</button>
+        </div>
+    `).join('');
+}
+async function bindPlate() {
+    const input = document.getElementById('bind-plate-input');
+    const plate = input.value.trim().toUpperCase();
+    if (!plate) { showError('vehicle-alert', '请输入车牌号'); return; }
+    const res = await post('/api/user/plates', { license_plate: plate });
+    if (res && res.ok) {
+        input.value = '';
+        showSuccess('vehicle-alert', '车牌 ' + plate + ' 绑定成功！');
+        loadMyPlates();
+    } else {
+        showError('vehicle-alert', res?.data?.error || '绑定失败');
     }
 }
-
+async function unbindPlate(id) {
+    if (!confirm('确定解绑该车牌？')) return;
+    const res = await del('/api/user/plates/' + id);
+    if (res && res.ok) {
+        showSuccess('vehicle-alert', '解绑成功');
+        loadMyPlates();
+    } else {
+        showError('vehicle-alert', res?.data?.error || '解绑失败');
+    }
+}
 async function loadBulletin() {
     const container = document.getElementById('bulletin-content');
     if (!container) return;
@@ -517,8 +433,7 @@ async function loadBulletin() {
             container.innerHTML = '<p style="color:#999">暂无公告</p>';
             return;
         }
-        // Render each bulletin with markdown support
-        container.innerHTML = bulletins.map((b, i) => {
+                container.innerHTML = bulletins.map((b, i) => {
             const mdHtml = typeof marked !== 'undefined' ? marked.parse(b.content) : b.content.replace(/\n/g, '<br>');
             const pinBadge = b.is_pinned ? '<span style="color:#ff4d4f;font-size:11px;margin-right:4px">[置顶]</span>' : '';
             return '<div style="' + (i > 0 ? 'margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0' : '') + '">' +
@@ -526,7 +441,6 @@ async function loadBulletin() {
         }).join('') + '</div>';
     }
 }
-
 async function loadPrediction() {
     if (!hasPerm('report.view')) return;
     const res = await get('/api/report/prediction');
@@ -536,7 +450,6 @@ async function loadPrediction() {
         document.getElementById('predicted-days-remaining').textContent = res.data.days_remaining;
     }
 }
-
 async function loadInterceptionCount() {
     if (!hasPerm('vehicle.blacklist')) return;
     const res = await get('/api/blacklist/interceptions/count');
@@ -544,30 +457,27 @@ async function loadInterceptionCount() {
         document.getElementById('interception-count').textContent = res.data.count;
     }
 }
-
-// ========== Smart Report ==========
 async function showSmartReport() {
     showModal('report-modal');
     document.getElementById('report-date').textContent = '报告生成: ' + new Date().toLocaleString('zh-CN');
     document.getElementById('report-body').innerHTML = '<div style="color:rgba(255,255,255,0.6);padding:40px 0;">⏳ 分析中...</div>';
-
+        let statusUrl = '/api/parking/status';
+    if (currentLot) statusUrl += '?P_name=' + encodeURIComponent(currentLot);
     const [statusRes, summaryRes, parkedRes, hourlyRes] = await Promise.all([
-        get('/api/parking/status'),
+        get(statusUrl),
         get('/api/report/summary'),
         get('/api/vehicle/parked'),
         get('/api/report/hourly')
     ]);
-
-    const total = statusRes?.data?.P_total_count || 100;
-    const occupied = statusRes?.data?.P_current_count || 0;
-    const available = statusRes?.data?.P_available_count || 0;
+    const d = statusRes?.data;
+    const total = d?.P_total_count || 0;
+    const occupied = d?.P_current_count || 0;
+    const available = d?.P_available_count || 0;
     const occRate = total > 0 ? (occupied / total * 100).toFixed(0) : '0';
     const todayIncome = parseFloat(summaryRes?.data?.today_income || 0).toFixed(2);
     const monthIncome = parseFloat(summaryRes?.data?.month_income || 0).toFixed(0);
     const parkedCount = parkedRes?.data?.records?.length || 0;
-
-    // Find peak hour
-    let peakHour = '-', peakCount = 0;
+        let peakHour = '-', peakCount = 0;
     if (hourlyRes?.data?.hours && hourlyRes.data.counts) {
         for (let i = 0; i < hourlyRes.data.hours.length; i++) {
             if (hourlyRes.data.counts[i] > peakCount) {
@@ -576,10 +486,8 @@ async function showSmartReport() {
             }
         }
     }
-
     const avgParked = occupied > 0 ? '约' + Math.round(parkedCount / Math.max(occupied, 1)) : '-';
     const efficiency = available >= total * 0.3 ? '充裕' : available > 0 ? '紧张' : '已满';
-
     setTimeout(() => {
         document.getElementById('report-body').innerHTML = `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center;">
@@ -619,7 +527,6 @@ async function showSmartReport() {
         `;
     }, 300);
 }
-
 async function checkHealth() {
     const el = document.getElementById('health-status');
     if (!el) return;
@@ -637,7 +544,6 @@ async function checkHealth() {
         el.style.color = '#ff4d4f';
     }
 }
-
 async function loadHeatmap() {
     const container = document.getElementById('heatmap-chart');
     if (!container) return;
@@ -649,7 +555,6 @@ async function loadHeatmap() {
     const hours = res.data.hours.map(String);
     const counts = res.data.counts;
     if (hours.length === 0) { container.innerHTML = '<p style="color:#999;text-align:center;">暂无数据</p>'; return; }
-
     if (typeof echarts === 'undefined') { container.innerHTML = '<p style="color:#999;text-align:center;">图表库加载中...</p>'; return; }
     const chart = echarts.init(container);
     const allCounts = Array.from({length: 24}, (_, i) => { const idx = hours.indexOf(String(i)); return idx >= 0 ? counts[idx] : 0; });
@@ -674,7 +579,6 @@ async function loadHeatmap() {
         }]
     });
 }
-
 async function handleCheckIn() {
     const plate = document.getElementById('plate-input').value.trim();
     const billingSel = document.getElementById('billing-type');
@@ -689,7 +593,6 @@ async function handleCheckIn() {
         loadStatus(); loadRecentRecords(); loadParkedVehicles();
     } else showError('vehicle-alert', res?.data?.error || '入库失败');
 }
-
 function showReceipt(plate, data) {
     const inTime = data.record ? data.record.check_in_time : (data.check_in_time || '');
     const outTime = data.record ? data.record.check_out_time : (data.check_out_time || '');
@@ -698,12 +601,11 @@ function showReceipt(plate, data) {
     document.getElementById('receipt-plate').textContent = plate;
     document.getElementById('receipt-in').textContent = formatDateTime(inTime);
     document.getElementById('receipt-out').textContent = formatDateTime(outTime);
-    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-duration').textContent = duration || computeDurationText(inTime, outTime) || '计算中...';
     document.getElementById('receipt-billing').textContent = '标准计费';
     document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
     showModal('receipt-modal');
 }
-
 async function handleCheckOut() {
     const plate = document.getElementById('plate-input').value.trim();
     if (!plate) { showError('vehicle-alert', '请输入车牌号'); return; }
@@ -715,14 +617,11 @@ async function handleCheckOut() {
         loadStatus(); loadRecentRecords(); loadBalance(); loadParkedVehicles();
     } else showError('vehicle-alert', res?.data?.error || '出库失败');
 }
-
 async function handlePlateRecognize() {
     const res = await post('/api/plate/recognize', {});
     if (res && res.ok) showSuccess('vehicle-alert', res.data?.message || '识别完成');
     else showError('vehicle-alert', res?.data?.error || res?.error || '识别失败');
 }
-
-// ========== Recharge ==========
 function openRechargeModal() {
     document.getElementById('recharge-amount').value = 100;
     document.getElementById('recharge-alert').innerHTML = '';
@@ -746,8 +645,6 @@ async function confirmRecharge() {
         loadBalance();
     } else showError('recharge-alert', res?.data?.error || '充值失败');
 }
-
-// ========== Parking Settings (Dashboard) ==========
 async function loadParkingSettings() {
     const container = document.getElementById('parking-lots-settings');
     if (!container || !hasPerm('parking.settings')) return;
@@ -781,15 +678,13 @@ async function loadParkingSettings() {
                 <button class="btn btn-sm btn-default" onclick="hideAddParkingForm()">取消</button>
             </div>
         </div>`;
-    // Show save buttons on input change
-    container.querySelectorAll('.parking-capacity-input, .parking-fee-input').forEach(el => {
+        container.querySelectorAll('.parking-capacity-input, .parking-fee-input').forEach(el => {
         el.addEventListener('change', function() {
             const saveBtn = this.closest('div').querySelector('.btn-primary');
             if (saveBtn) saveBtn.style.display = 'inline-block';
         });
     });
 }
-
 async function saveParkingSetting(btn) {
     const row = btn.closest('div');
     const name = row.querySelector('strong').textContent;
@@ -800,14 +695,12 @@ async function saveParkingSetting(btn) {
     if (res && res.ok) { btn.style.display = 'none'; loadParkingSettings(); }
     else showError('vehicle-alert', res?.data?.error || '保存失败');
 }
-
 async function deleteParkingLot(id, name) {
     if (!confirm('确定删除停车场 "' + name + '"？关联的计费规则和套餐也将被清理。')) return;
     const res = await del('/api/parking/lot/' + id);
     if (res && res.ok) { loadParkingSettings(); loadParkingLots(); }
     else showError('vehicle-alert', res?.data?.error || '删除失败');
 }
-
 function showAddParkingForm() {
     const form = document.getElementById('add-parking-form');
     if (form) form.style.display = 'flex';
@@ -826,23 +719,23 @@ async function addParkingLot() {
     if (res && res.ok) { hideAddParkingForm(); loadParkingSettings(); loadParkingLots(); }
     else showError('vehicle-alert', res?.data?.error || '添加失败');
 }
-
 document.getElementById('plate-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') handleCheckIn(); });
 document.getElementById('parked-search-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') loadParkedVehicles(); });
-
-// Init
 applyPermUI();
 initPieChart();
-loadParkingLots();  // calls loadStatus() + loadPassPlans() after setting currentLot
+loadParkingLots();  
 loadParkingSettings();
 loadRecentRecords();
 loadBalance();
 loadBulletin();
+loadMyBilling();
 loadHeatmap();
 loadPrediction();
 loadInterceptionCount();
 loadParkedVehicles();
+loadMyPlates();
 checkHealth();
+setTimeout(() => { if (!currentLot) loadPassPlans(); }, 2000);
 setInterval(() => { checkHealth(); }, 30000);
 setInterval(() => { loadStatus(); }, 10000);
 setInterval(() => { loadPrediction(); loadInterceptionCount(); }, 30000);

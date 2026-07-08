@@ -1,8 +1,5 @@
-// Smart Parking - 公共工具函数
 
 const API_BASE = '';
-
-// HTTP 请求封装
 async function request(url, options = {}) {
     const token = sessionStorage.getItem('token');
     const headers = {
@@ -12,48 +9,34 @@ async function request(url, options = {}) {
     if (token) {
         headers['Authorization'] = 'Bearer ' + token;
     }
-
     try {
         const resp = await fetch(API_BASE + url, { ...options, headers });
         const data = await resp.json();
-
-        // Only redirect on 401 if already logged in (token exists) and not a login attempt
-        if (resp.status === 401 && token && !url.includes('/api/auth/login')) {
+                if (resp.status === 401 && token && !url.includes('/api/auth/login')) {
             sessionStorage.removeItem('token');
             sessionStorage.removeItem('user');
             sessionStorage.removeItem('permissions');
             window.location.href = '/index.html';
             return null;
         }
-
         return { ok: resp.ok, status: resp.status, data };
     } catch (e) {
         console.error('Request failed:', e);
         return { ok: false, status: 0, data: { error: '网络请求失败' } };
     }
 }
-
-// GET
 async function get(url) {
     return request(url, { method: 'GET' });
 }
-
-// POST
 async function post(url, body) {
     return request(url, { method: 'POST', body: JSON.stringify(body) });
 }
-
-// PUT
 async function put(url, body) {
     return request(url, { method: 'PUT', body: JSON.stringify(body) });
 }
-
-// DELETE
 async function del(url) {
     return request(url, { method: 'DELETE' });
 }
-
-// 检查登录状态
 function checkAuth() {
     const token = sessionStorage.getItem('token');
     const user = sessionStorage.getItem('user');
@@ -63,62 +46,40 @@ function checkAuth() {
     }
     return JSON.parse(user);
 }
-
-// 演示模式：检测 URL 参数 ?demo=1，显示页面说明横幅
-(function() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('demo') === '1') {
-        const pageNames = {
-            'dashboard': '主面板', 'parking': '停车场管理', 'checkin': '车辆入库',
-            'vehicles': '车辆信息', 'admin': '管理页面', 'reservation': '预约管理',
-            'recognize': '车牌识别', 'chat': '联系客服', 'profile': '个人中心'
-        };
-        const name = pageNames[window.location.pathname.split('/').pop().replace('.html','')] || '当前页面';
-        const banner = document.createElement('div');
-        banner.style.cssText = 'background:#e6f7ff;border-bottom:2px solid #91d5ff;padding:10px 20px;text-align:center;font-size:14px;color:#1890ff;position:sticky;top:0;z-index:999;';
-        banner.innerHTML = `📖 演示模式：${name} — 点击 <a href="/dashboard.html" style="color:#ff4d4f;font-weight:600;">返回主面板</a> 继续导览`;
-        document.body.prepend(banner);
-    }
-})();
-
-// 获取用户信息
 function getUser() {
     const user = sessionStorage.getItem('user');
     return user ? JSON.parse(user) : null;
 }
-
-// 显示提示
 function showAlert(containerId, message, type = 'info') {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
     setTimeout(() => { container.innerHTML = ''; }, 5000);
 }
-
 function showSuccess(containerId, message) { showAlert(containerId, message, 'success'); }
 function showError(containerId, message) { showAlert(containerId, message, 'error'); }
 function showWarning(containerId, message) { showAlert(containerId, message, 'warning'); }
-
-// 显示/隐藏 modal
 function showModal(id) {
     document.getElementById(id).classList.add('show');
 }
-
 function hideModal(id) {
     document.getElementById(id).classList.remove('show');
 }
-
-// 格式化日期时间
 function formatDateTime(dt) {
     if (!dt) return '-';
     return dt.replace('T', ' ').substring(0, 19);
 }
-
 function formatDate(d) {
     return d ? d.substring(0, 10) : '-';
 }
-
-// HTML 转义
+function computeDurationText(startStr, endStr) {
+    if (!startStr || !endStr) return '';
+    const s = new Date(String(startStr).replace(' ', 'T'));
+    const e = new Date(String(endStr).replace(' ', 'T'));
+    if (isNaN(s) || isNaN(e) || e <= s) return '';
+    const mins = Math.floor((e - s) / 60000);
+    return Math.floor(mins / 60) + '小时' + (mins % 60) + '分';
+}
 function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -199,7 +160,25 @@ function initSidebar() {
         const recognizeNav = document.getElementById('nav-recognize');
         if (recognizeNav) recognizeNav.style.display = 'none';
     }
-    // Adjust chat nav based on role
+
+    // Role-based nav visibility:
+    // Regular users: hide admin-only items (车辆入库, 车牌识别)
+    // Admin: hide user-only items (智能入库, 计费规则)
+    if (user.role === 'user') {
+        // Hide admin-only pages for regular users
+        const checkinNav = document.getElementById('nav-checkin');
+        if (checkinNav) checkinNav.style.display = 'none';
+        const recognizeNav = document.getElementById('nav-recognize');
+        if (recognizeNav) recognizeNav.style.display = 'none';
+    } else {
+        // Hide user-only pages for admin
+        const userCheckinNav = document.getElementById('nav-user-checkin');
+        if (userCheckinNav) userCheckinNav.style.display = 'none';
+        const billingNav = document.getElementById('nav-billing');
+        if (billingNav) billingNav.style.display = 'none';
+    }
+
+    // Adjust chat nav based on role: users -> AI chat, admins -> conversations overview
     const chatNav = document.getElementById('nav-chat');
     if (chatNav) {
         if (!hasPerm('message.send')) {
@@ -207,8 +186,8 @@ function initSidebar() {
         } else if (user.role === 'admin' || user.role === 'root') {
             const iconSpan = chatNav.querySelector('.icon');
             if (iconSpan) iconSpan.textContent = '💬';
-            chatNav.lastChild.textContent = ' 用户反馈';
-            chatNav.href = '/feedback.html';
+            chatNav.lastChild.textContent = ' 客服会话';
+            chatNav.href = '/conversations.html';
         }
     }
 }

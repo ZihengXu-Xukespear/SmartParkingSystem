@@ -1,11 +1,8 @@
 const user = checkAuth();
 if (user) { initSidebar(); if (!hasPerm('message.manage')) { document.querySelector('.main-content').innerHTML = '<div class="card" style="text-align:center;padding:60px"><h2>权限不足</h2></div>'; } }
-
 function roleLabel(r) { const m={admin:'管理员',root:'管理员',user:'普通用户'}; return m[r]||'用户'; }
-
 let currentChatUserId = null;
 let feedbackPollTimer = null;
-
 async function loadConversations() {
     const res = await get('/api/message/conversations');
     const container = document.getElementById('conversation-list');
@@ -36,7 +33,6 @@ async function loadConversations() {
         if (currentChatUserId) loadFeedbackMessages(currentChatUserId);
     }, 3000);
 }
-
 async function selectConversation(userId) {
     currentChatUserId = userId;
     const res = await get('/api/message/conversations');
@@ -61,7 +57,6 @@ async function selectConversation(userId) {
     loadFeedbackMessages(userId);
     loadConversations();
 }
-
 async function loadFeedbackMessages(userId) {
     const res = await get('/api/message/history?user_id=' + userId);
     const container = document.getElementById('feedback-messages');
@@ -84,7 +79,6 @@ async function loadFeedbackMessages(userId) {
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 }
-
 async function sendAdminReply() {
     const input = document.getElementById('feedback-reply-input');
     const content = input.value.trim();
@@ -93,9 +87,7 @@ async function sendAdminReply() {
     const res = await post('/api/message/send', { receiver_id: currentChatUserId, content });
     if (res && res.ok) { loadFeedbackMessages(currentChatUserId); loadConversations(); }
 }
-
 document.getElementById('feedback-reply-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') sendAdminReply();
 });
-
 loadConversations();

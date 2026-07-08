@@ -92,6 +92,9 @@ add_custom_command(TARGET smart_parking POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_SOURCE_DIR}/src/hyperlpr_bridge.py
         $<TARGET_FILE_DIR:smart_parking>/hyperlpr_bridge.py
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/src/llm_bridge.py
+        $<TARGET_FILE_DIR:smart_parking>/llm_bridge.py
 )
 
 # Windows: copy MySQL DLL and OpenCV DLL

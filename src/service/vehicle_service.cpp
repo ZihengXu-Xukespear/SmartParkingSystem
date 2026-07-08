@@ -19,6 +19,14 @@ bool VehicleService::checkIn(const std::string& plate, const std::string& billin
 }
 
 bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, std::string& error) {
+    return checkIn(plate, billing_type, P_name, spotNum, 0, "", error);
+}
+
+bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, int operatorId, std::string& error) {
+    return checkIn(plate, billing_type, P_name, spotNum, operatorId, "", error);
+}
+
+bool VehicleService::checkIn(const std::string& plate, const std::string& billing_type, const std::string& P_name, int spotNum, int operatorId, const std::string& charging_plan, std::string& error) {
     if (!validatePlate(plate)) { error = "车牌号格式不正确"; return false; }
 
     std::string blReason;
@@ -137,12 +145,23 @@ bool VehicleService::checkIn(const std::string& plate, const std::string& billin
 
     std::string spotCol = spotNumber > 0 ? ",spot_number" : "";
     std::string spotVal = spotNumber > 0 ? "," + std::to_string(spotNumber) : "";
+    std::string chgCol = !charging_plan.empty() ? ",charging_plan" : "";
+    std::string chgVal = !charging_plan.empty() ? ",'" + charging_plan + "'" : "";
 
-    sql = "INSERT INTO CAR_RECORD (license_plate,check_in_time,location,billing_type,reservation_id,P_name" + spotCol + ") VALUES (" +
+    sql = "INSERT INTO CAR_RECORD (license_plate,check_in_time,location,billing_type,reservation_id,P_name,operator_id" + spotCol + chgCol + ") VALUES (" +
         quote(mysql, plate) + ",NOW()," + quote(mysql, parkingName) + "," +
         quote(mysql, billing_type) + "," + std::to_string(reservationId) + "," +
-        quote(mysql, parkingName) + spotVal + ")";
+        quote(mysql, parkingName) + "," + std::to_string(operatorId) + spotVal + chgVal + ")";
     if (mysql_query(mysql, sql.c_str()) != 0) { error = "插入记录失败"; return false; }
+
+    // Auto-bind the plate to the user when a regular user checks in themselves
+    // (operatorId > 0). Without this the user can't see their own plate in
+    // VehicleService::queryRecords until they manually POST /api/user/plates.
+    if (operatorId > 0) {
+        std::string bindSql = "INSERT IGNORE INTO USER_PLATE (user_id, license_plate) VALUES (" +
+            std::to_string(operatorId) + "," + quote(mysql, plate) + ")";
+        mysql_query(mysql, bindSql.c_str());
+    }
 
     if (!tx.commit()) { error = "事务提交失败"; return false; }
     return true;
@@ -187,6 +206,61 @@ bool VehicleService::checkOut(const std::string& plate, int userId, double& fee,
 
     fee = calculateFee(mysql, plate, check_in, billing_type, carLot, reservationId);
 
+    // Charging fee — read the electric_charging rule from BILLING_RULE
+    // (rule_type='electric_charging', hourly_rate=5.00 ¥/hour)
+    // and multiply by the actual parking duration (rounded up to whole hours).
+    {
+        std::string csql = "SELECT charging_plan FROM CAR_RECORD WHERE id=" + std::to_string(rec_id);
+        std::string plan;
+        if (mysql_query(mysql, csql.c_str()) == 0) {
+            MYSQL_RES* cres = mysql_store_result(mysql);
+            if (cres) {
+                MYSQL_ROW crow = mysql_fetch_row(cres);
+                if (crow && crow[0]) plan = crow[0];
+                mysql_free_result(cres);
+            }
+        }
+        if (!plan.empty()) {
+            // Look up the electric_charging rule (global or per-lot)
+            double charging_rate = 0.0;
+            std::string rs = "SELECT hourly_rate FROM BILLING_RULE WHERE rule_type='electric_charging'"
+                " AND is_active=1 AND (P_name=" + quote(mysql, carLot) + " OR P_name='' OR P_name IS NULL)"
+                " ORDER BY CASE WHEN P_name!='' THEN 1 ELSE 2 END LIMIT 1";
+            if (mysql_query(mysql, rs.c_str()) == 0) {
+                MYSQL_RES* rres = mysql_store_result(mysql);
+                if (rres) {
+                    MYSQL_ROW rrow = mysql_fetch_row(rres);
+                    if (rrow && rrow[0]) charging_rate = std::stod(rrow[0]);
+                    mysql_free_result(rres);
+                }
+            }
+            if (charging_rate <= 0) charging_rate = 5.0; // safe fallback
+
+            // Total seconds parked, rounded up to whole hours
+            std::string ds = "SELECT TIMESTAMPDIFF(SECOND, check_in_time, NOW()) FROM CAR_RECORD WHERE id="
+                + std::to_string(rec_id);
+            int dur_sec = 0;
+            if (mysql_query(mysql, ds.c_str()) == 0) {
+                MYSQL_RES* dres = mysql_store_result(mysql);
+                if (dres) {
+                    MYSQL_ROW drow = mysql_fetch_row(dres);
+                    if (drow && drow[0]) dur_sec = std::stoi(drow[0]);
+                    mysql_free_result(dres);
+                }
+            }
+            // 统一按 electric_charging 规则 hourly_rate × 已完成的小时数（向下取整）
+            // 例：停车 1 小时 5 分钟 → 已完成 1 小时 → 充电 1 小时 = ¥5
+            //     停车 30 分钟 → 不足 1 小时，按最低 1 小时 = ¥5
+            double hours = std::max(dur_sec, 0) / 3600.0;
+            double billable_hours = std::floor(hours);
+            if (billable_hours < 1.0) billable_hours = 1.0; // 最低 1 小时
+            double cf = std::round(charging_rate * billable_hours * 100.0) / 100.0;
+            fee += cf;
+            std::string u = "UPDATE CAR_RECORD SET charging_fee=" + std::to_string(cf) + " WHERE id=" + std::to_string(rec_id);
+            mysql_query(mysql, u.c_str());
+        }
+    }
+
     if (fee > 0.01) {
         int payerId = userId;
         // If the plate has a monthly pass owner, deduct from that user instead of the operator
@@ -223,7 +297,7 @@ bool VehicleService::checkOut(const std::string& plate, int userId, double& fee,
     }
 
     sql = "SELECT id,license_plate,check_in_time,check_out_time,fee,location,billing_type,"
-        "'' AS duration,COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0) FROM CAR_RECORD WHERE id=" +
+        "CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE,check_in_time,check_out_time)/60),'小时',MOD(TIMESTAMPDIFF(MINUTE,check_in_time,check_out_time),60),'分') AS duration,COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0),COALESCE(charging_fee,0) FROM CAR_RECORD WHERE id=" +
         std::to_string(rec_id);
     if (mysql_query(mysql, sql.c_str()) == 0) {
         res = mysql_store_result(mysql);
@@ -239,6 +313,7 @@ bool VehicleService::checkOut(const std::string& plate, int userId, double& fee,
             record.exit_deadline = row[8] ? row[8] : "";
             record.P_name = row[9] ? row[9] : "";
             record.spot_number = row[10] ? std::stoi(row[10]) : 0;
+            record.charging_fee = row[11] ? std::stod(row[11]) : 0.0;
             mysql_free_result(res);
         }
     }
@@ -247,23 +322,30 @@ bool VehicleService::checkOut(const std::string& plate, int userId, double& fee,
     return true;
 }
 
-std::vector<CarRecord> VehicleService::queryRecords(const std::string& plate, const std::string& start_date, const std::string& end_date) {
+std::vector<CarRecord> VehicleService::queryRecords(const std::string& plate, const std::string& start_date, const std::string& end_date, int userId, const std::string& userRole) {
     auto conn = getConnection();
     if (!conn) return {};
     MYSQL* mysql = conn->get();
 
     std::string sql = "SELECT id,license_plate,check_in_time,check_out_time,fee,location,billing_type,"
-        "CASE WHEN check_out_time IS NULL THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE,check_in_time,NOW())/60),'小时',MOD(TIMESTAMPDIFF(MINUTE,check_in_time,NOW()),60),'分') ELSE '' END AS duration,"
+        "CASE WHEN check_out_time IS NULL THEN CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE,check_in_time,NOW())/60),'小时',MOD(TIMESTAMPDIFF(MINUTE,check_in_time,NOW()),60),'分') ELSE CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE,check_in_time,check_out_time)/60),'小时',MOD(TIMESTAMPDIFF(MINUTE,check_in_time,check_out_time),60),'分') END AS duration,"
         "COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0) FROM CAR_RECORD WHERE 1=1";
     if (!plate.empty()) sql += " AND license_plate=" + quote(mysql, plate);
     if (!start_date.empty()) sql += " AND check_in_time >= " + quote(mysql, start_date + " 00:00:00");
     if (!end_date.empty()) sql += " AND check_in_time <= " + quote(mysql, end_date + " 23:59:59");
+    // User-scoped filtering: only show own records
+    if (userRole == "user" && userId > 0) {
+        sql += " AND (operator_id=" + std::to_string(userId)
+            + " OR license_plate IN (SELECT license_plate FROM MONTHLY_PASS WHERE user_id=" + std::to_string(userId) + " AND is_active=1)"
+            + " OR license_plate IN (SELECT license_plate FROM RESERVATION WHERE user_id=" + std::to_string(userId) + ")"
+            + " OR license_plate IN (SELECT license_plate FROM USER_PLATE WHERE user_id=" + std::to_string(userId) + "))";
+    }
     sql += " ORDER BY check_in_time DESC LIMIT 500";
 
     return list(sql);
 }
 
-std::vector<CarRecord> VehicleService::getParkedVehicles(const std::string& plate_filter) {
+std::vector<CarRecord> VehicleService::getParkedVehicles(const std::string& plate_filter, int userId, const std::string& userRole) {
     auto conn = getConnection();
     if (!conn) return {};
     MYSQL* mysql = conn->get();
@@ -272,6 +354,13 @@ std::vector<CarRecord> VehicleService::getParkedVehicles(const std::string& plat
         "CONCAT(FLOOR(TIMESTAMPDIFF(MINUTE,check_in_time,NOW())/60),'小时',MOD(TIMESTAMPDIFF(MINUTE,check_in_time,NOW()),60),'分') AS duration,"
         "COALESCE(exit_deadline,''),COALESCE(P_name,location),COALESCE(spot_number,0) FROM CAR_RECORD WHERE check_out_time IS NULL";
     if (!plate_filter.empty()) sql += " AND license_plate LIKE " + quote(mysql, "%" + plate_filter + "%");
+    // User-scoped filtering: only show own records
+    if (userRole == "user" && userId > 0) {
+        sql += " AND (operator_id=" + std::to_string(userId)
+            + " OR license_plate IN (SELECT license_plate FROM MONTHLY_PASS WHERE user_id=" + std::to_string(userId) + " AND is_active=1)"
+            + " OR license_plate IN (SELECT license_plate FROM RESERVATION WHERE user_id=" + std::to_string(userId) + ")"
+            + " OR license_plate IN (SELECT license_plate FROM USER_PLATE WHERE user_id=" + std::to_string(userId) + "))";
+    }
     sql += " ORDER BY check_in_time DESC";
 
     return list(sql);
@@ -394,11 +483,15 @@ double VehicleService::calculateFee(MYSQL* mysql, const std::string& plate, cons
     int effective_free = free_minutes + free_minutes_extra;
     if (duration_min <= effective_free) return 0.0;
 
+    // Total chargeable hours (after free period, rounded up to whole hours, min 1).
+    // Computed once and shared by both the fee engine and the per-day cap below.
+    double chargeable_hours = std::ceil((duration_min - effective_free) / 60.0);
+    if (chargeable_hours < 1.0) chargeable_hours = 1.0;  // Minimum 1 hour charge
+
     double fee = 0.0;
 
     if (billing_type == "tiered" && !tier_config.empty()) {
-        double remaining_hours = std::ceil((duration_min - effective_free) / 60.0);
-        if (remaining_hours < 1.0) remaining_hours = 1.0;  // Minimum 1 hour charge
+        double remaining_hours = chargeable_hours;
         auto tier_json = crow::json::load(tier_config);
         if (tier_json) {
             for (const auto& tier : tier_json) {
@@ -412,12 +505,18 @@ double VehicleService::calculateFee(MYSQL* mysql, const std::string& plate, cons
         }
         if (remaining_hours > 0) fee += remaining_hours * hourly_rate;
     } else {
-        double hours = std::ceil((duration_min - effective_free) / 60.0);
-        if (hours < 1.0) hours = 1.0;  // Minimum 1 hour charge
-        fee = hours * hourly_rate;
+        fee = chargeable_hours * hourly_rate;
     }
 
-    if (max_daily_fee > 0 && fee > max_daily_fee) fee = max_daily_fee;
+    // Per-day cap: each 24-hour period is capped at max_daily_fee independently,
+    // so multi-day parking scales with the number of days instead of being
+    // flattened to a single daily cap (e.g. 2 days => 2 * max_daily_fee).
+    if (max_daily_fee > 0) {
+        double num_days = std::ceil(chargeable_hours / 24.0);
+        if (num_days < 1.0) num_days = 1.0;
+        double total_cap = num_days * max_daily_fee;
+        if (fee > total_cap) fee = total_cap;
+    }
 
     fee = std::round(fee * 100.0) / 100.0;
     return fee;

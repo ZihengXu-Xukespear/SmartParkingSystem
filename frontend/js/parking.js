@@ -1,6 +1,5 @@
 const user = checkAuth();
 if (user) { initSidebar(); if (!hasPerm('parking.settings')) { document.querySelector('.main-content').innerHTML = '<div class="card" style="text-align:center;padding:60px"><h2>权限不足</h2></div>'; } }
-
 async function loadLots() {
     const container = document.getElementById('lots-container');
     const res = await get('/api/parking/list');
@@ -18,9 +17,7 @@ async function loadLots() {
             <span style="font-size:12px;color:#666;">已用:${l.P_current_count} 预约:${l.P_reserve_count} 剩余:${l.P_total_count - l.P_current_count - l.P_reserve_count}</span>
             <button class="btn btn-danger btn-sm delete-lot-btn" style="margin-left:auto;">删除</button>
         </div>`).join('');
-
-    // Event delegation
-    container.querySelectorAll('.save-lot-btn').forEach(btn => {
+        container.querySelectorAll('.save-lot-btn').forEach(btn => {
         btn.onclick = function() {
             const row = this.closest('.lot-row');
             const pid = parseInt(row.dataset.pid);
@@ -38,7 +35,6 @@ async function loadLots() {
         };
     });
 }
-
 async function saveLot(pid, pname, newName, capacity, fee) {
     const body = { P_name: pname, fee, capacity };
     if (newName && newName !== pname) body.new_name = newName;
@@ -46,7 +42,6 @@ async function saveLot(pid, pname, newName, capacity, fee) {
     if (res && res.ok) { showSuccess('alert-box', (newName || pname) + ' 已更新'); loadLots(); }
     else showError('alert-box', res?.data?.error || '更新失败');
 }
-
 async function addLot() {
     const name = document.getElementById('new-lot-name').value.trim();
     const capacity = parseInt(document.getElementById('new-lot-capacity').value);
@@ -56,12 +51,10 @@ async function addLot() {
     if (res && res.ok) { showSuccess('alert-box', '已添加'); document.getElementById('new-lot-name').value = ''; loadLots(); }
     else showError('alert-box', res?.data?.error || '添加失败');
 }
-
 async function deleteLot(id, name) {
     if (!confirm('确定删除「' + name + '」？此操作不可撤销。')) return;
     const res = await request('/api/parking/lot/' + id, { method: 'DELETE' });
     if (res && res.ok) { showSuccess('alert-box', '已删除'); loadLots(); }
     else showError('alert-box', res?.data?.error || '删除失败');
 }
-
 loadLots();

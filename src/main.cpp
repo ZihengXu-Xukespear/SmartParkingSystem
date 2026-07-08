@@ -14,6 +14,7 @@
 #include "controller/report_controller.h"
 #include "controller/bulletin_controller.h"
 #include "controller/message_controller.h"
+#include "controller/customer_service_controller.h"
 #include "permissions.h"
 #include "service/auth_service.h"
 
@@ -187,6 +188,7 @@ int main() {
     controllers.push_back(std::make_unique<ReportController>());
     controllers.push_back(std::make_unique<BulletinController>());
     controllers.push_back(std::make_unique<MessageController>());
+    controllers.push_back(std::make_unique<CustomerServiceController>());
     for (auto& ctrl : controllers) {
         ctrl->registerRoutes(app);
     }

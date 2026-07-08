@@ -17,6 +17,12 @@ struct AppConfig {
     int server_port = 8080;
     int notice_expire_minutes = 30;
     std::string notice = "欢迎使用智慧停车场管理系统！\n请遵守停车场管理规定，文明停车。";
+    // AI customer-service (LLM) settings.
+    // These are only fallback defaults; real values are loaded from config/db_config.json
+    // (or the SP_LLM_KEY env var for the API key) at startup.
+    std::string llm_base_url = "http://your-llm-host:port";
+    std::string llm_api_key;
+    std::string llm_model = "glm-5.2";
     bool initialized = false;
     std::string config_dir = "config";
     std::string config_file = "config/db_config.json";

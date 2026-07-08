@@ -1,27 +1,54 @@
-# Build
+# =============================================================================
+# SmartParkingSystem — .gitignore
+# Anything that is generated locally, environment-specific, or carries
+# credentials must NOT be committed.
+# =============================================================================
+
+# ---------- Build outputs ----------
 build/
 cmake-build-*/
+out/
+bin/
+
 CMakeCache.txt
 CMakeFiles/
 CMakeUserPresets.json
+CMakePresets.json
+cmake_install.cmake
+_deps/
+
+# ---------- Compiled artifacts ----------
 *.exe
-*.obj
+*.dll
 *.lib
-*.pdb
+*.obj
+*.o
+*.a
+*.so
 *.exp
 *.ilk
+*.pdb
+*.pdb
+*.idb
+*.res
 
-# IDE
+# ---------- IDE / editor ----------
 .vs/
 .vscode/
+.idea/
 *.user
+*.userosscache
 *.suo
 *.sln
-*.vcxproj*
+*.vcxproj
+*.vcxproj.*
+*.code-workspace
+*.swp
+.DS_Store
 
-# Conan generated
-CMakePresets.json
+# ---------- Conan ----------
 conan_toolchain.cmake
+conanbuildinfo.*
 conanbuild*.bat
 conanrun*.bat
 deactivate_conan*.bat
@@ -30,18 +57,20 @@ cmakedeps_macros.cmake
 asio*.cmake
 asioTargets.cmake
 
-# Config with real credentials
+# ---------- Runtime / local config with real credentials ----------
 config/db_config.json
+config/*.local.json
 
-# OS
+# ---------- Logs / scratch ----------
+logs/
+*.log
+test_output.txt
+
+# ---------- OS junk ----------
 Thumbs.db
 Desktop.ini
-.DS_Store
 
-# Claude Code
+# ---------- Editor / tooling state ----------
 .claude/
 CLAUDE.md
-
-已知问题.txt
-
-# Clean branch test commit
+.claude_settings/

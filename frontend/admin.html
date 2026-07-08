@@ -15,7 +15,13 @@
                 <a class="nav-item" id="nav-dashboard" href="/dashboard.html"><span class="icon">&#9776;</span> 主面板</a>
                 <a class="nav-item" id="nav-parking" href="/parking.html"><span class="icon">&#127359;</span> 停车场</a>
                 <a class="nav-item" id="nav-checkin" href="/checkin.html"><span class="icon">&#9971;</span> 车辆入库</a>
+                <a class="nav-item" id="nav-user-checkin" href="/user-checkin.html">
+                    <span class="icon">&#128664;</span> 智能入库
+                </a>
                 <a class="nav-item" id="nav-vehicles" href="/vehicles.html"><span class="icon">&#128663;</span> 车辆信息</a>
+                <a class="nav-item" id="nav-billing" href="/billing-rules.html">
+                    <span class="icon">&#128176;</span> 计费规则
+                </a>
                 <a class="nav-item active" id="nav-admin" href="/admin.html"><span class="icon">&#128100;</span> 管理页面</a>
                 <a class="nav-item" id="nav-reservation" href="/reservation.html"><span class="icon">&#128197;</span> 预约管理</a>
                 <a class="nav-item" id="nav-recognize" href="/recognize.html"><span class="icon">&#128247;</span> 车牌识别</a>
@@ -29,7 +35,6 @@
         </div>
         <div class="main-content">
             <div class="page-header"><h1>管理页面</h1><p>用户、套餐、计费、黑名单与统计</p></div>
-
             <div class="tabs">
                 <div class="tab active" onclick="switchTab('users',event)">用户管理</div>
                 <div class="tab" onclick="switchTab('recharge',event)">余额充值</div>
@@ -43,9 +48,7 @@
                 <div class="tab" onclick="switchTab('settings',event)">系统设置</div>
             </div>
             <div id="alert-box"></div>
-
-            <!-- Users Tab -->
-            <div id="tab-users">
+                        <div id="tab-users">
                 <div class="card">
                     <div class="card-title">用户信息 <button class="btn btn-primary btn-sm" style="float:right" onclick="showModal('user-modal')">添加用户</button></div>
                     <div class="table-wrapper">
@@ -67,9 +70,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Recharge Tab -->
-            <div id="tab-recharge" class="hidden">
+                        <div id="tab-recharge" class="hidden">
                 <div class="card">
                     <div class="card-title">余额充值</div>
                     <div id="recharge-alert"></div>
@@ -79,9 +80,7 @@
                     <button class="btn btn-primary" onclick="doRecharge()">确认充值</button>
                 </div>
             </div>
-
-            <!-- Plans Tab -->
-            <div id="tab-plans" class="hidden">
+                        <div id="tab-plans" class="hidden">
                 <div class="card">
                     <div class="card-title">套餐管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openPlanModal('','',30,0,'',true)">添加套餐</button></div>
                     <div style="margin-bottom:8px;"><label style="font-size:13px;">停车场：</label>
@@ -102,9 +101,7 @@
                     </table></div>
                 </div>
             </div>
-
-            <!-- Billing Tab -->
-            <div id="tab-billing" class="hidden">
+                        <div id="tab-billing" class="hidden">
                 <div class="card">
                     <div class="card-title">计费规则 <button class="btn btn-primary btn-sm" style="float:right" onclick="openBillingAdd()">添加规则</button></div>
                     <div style="margin-bottom:8px;"><label style="font-size:13px;">停车场：</label>
@@ -130,9 +127,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Vehicles Tab -->
-            <div id="tab-vehicles" class="hidden">
+                        <div id="tab-vehicles" class="hidden">
                 <div class="card">
                     <div class="card-title">车辆管理</div>
                     <div id="vehicle-mgmt-alert"></div>
@@ -158,9 +153,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Blacklist Tab -->
-            <div id="tab-blacklist" class="hidden">
+                        <div id="tab-blacklist" class="hidden">
                 <div class="card">
                     <div class="card-title">车辆黑名单</div>
                     <div id="bl-alert"></div>
@@ -196,9 +189,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Reports Tab -->
-            <div id="tab-reports" class="hidden">
+                        <div id="tab-reports" class="hidden">
                 <div class="stat-cards">
                     <div class="stat-card primary"><div class="label">今日收入</div><div class="value" id="rpt-today">-</div></div>
                     <div class="stat-card warning"><div class="label">本月收入</div><div class="value" id="rpt-month">-</div></div>
@@ -222,9 +213,7 @@
                     <button class="btn btn-primary" onclick="exportReport()">导出 CSV</button>
                 </div>
             </div>
-
-            <!-- Notice Tab -->
-            <div id="tab-notice" class="hidden">
+                        <div id="tab-notice" class="hidden">
                 <div class="card">
                     <div class="card-title">公告管理 <button class="btn btn-primary btn-sm" style="float:right" onclick="openBulletinModal()">新增公告</button></div>
                     <div id="notice-alert"></div>
@@ -245,9 +234,7 @@
                     <button class="btn btn-primary" onclick="saveNotice()">保存公告</button>
                 </div>
             </div>
-
-            <!-- Settings Tab -->
-            <div id="tab-settings" class="hidden">
+                        <div id="tab-settings" class="hidden">
                 <div class="card">
                     <div class="card-title">系统设置</div>
                     <p style="margin-bottom:16px;color:#666;">管理系统初始化、数据库配置等。首次使用或重置系统时使用。</p>
@@ -255,9 +242,7 @@
                     <span style="color:#999;margin-left:12px;font-size:13px;">需要超级管理员(root)权限才能重新初始化</span>
                 </div>
             </div>
-
-            <!-- Messages Tab -->
-            <div id="tab-messages" class="hidden">
+                        <div id="tab-messages" class="hidden">
                 <div class="card">
                     <div class="card-title">消息管理</div>
                     <div id="msg-alert"></div>
@@ -281,9 +266,7 @@
                     </div>
                 </div>
             </div>
-
-        <!-- 停车计费与余额扣费 -->
-        <div id="tab-parking-fee" class="hidden">
+                <div id="tab-parking-fee" class="hidden">
             <div class="card">
                 <div class="card-title">停车计费 & 离场扣费</div>
                 <div id="parking-alert"></div>
@@ -304,12 +287,9 @@
                 </div>
             </div>
         </div>
-
         </div>
     </div>
-
-    <!-- User Modal -->
-    <div class="modal-overlay" id="user-modal">
+        <div class="modal-overlay" id="user-modal">
         <div class="modal">
             <div class="modal-header"><h3 id="user-modal-title">添加用户</h3><button class="modal-close" onclick="hideModal('user-modal')">&times;</button></div>
             <div class="modal-body">
@@ -323,18 +303,14 @@
                 <div class="form-group">
                     <label>角色</label><select id="modal-role" class="form-control">
                         <option value="user">普通用户</option>
-                        
-                        <option value="admin">管理员</option>
-                        
-                    </select>
+                                                <option value="admin">管理员</option>
+                                            </select>
                 </div>
             </div>
             <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('user-modal')">取消</button><button class="btn btn-primary" onclick="saveUser()">保存</button></div>
         </div>
     </div>
-
-    <!-- Plan Modal -->
-    <div class="modal-overlay" id="plan-modal">
+        <div class="modal-overlay" id="plan-modal">
         <div class="modal">
             <div class="modal-header"><h3>编辑套餐</h3><button class="modal-close" onclick="hideModal('plan-modal')">&times;</button></div>
             <div class="modal-body">
@@ -353,9 +329,7 @@
             <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('plan-modal')">取消</button><button class="btn btn-primary" onclick="savePlan()">保存</button></div>
         </div>
     </div>
-
-    <!-- Billing Edit Modal -->
-    <div class="modal-overlay" id="billing-modal">
+        <div class="modal-overlay" id="billing-modal">
         <div class="modal">
             <div class="modal-header"><h3>编辑计费规则</h3><button class="modal-close" onclick="hideModal('billing-modal')">&times;</button></div>
             <div class="modal-body">
@@ -380,9 +354,7 @@
             <div class="modal-footer"><button class="btn btn-danger btn-sm" onclick="deleteBillingRule()" id="btn-delete-billing" style="display:none;margin-right:auto;">删除规则</button><button class="btn btn-default" onclick="hideModal('billing-modal')">取消</button><button class="btn btn-primary" onclick="saveBillingRule()">保存</button></div>
         </div>
     </div>
-
-    <!-- Pass Edit Modal -->
-    <div class="modal-overlay" id="pass-modal">
+        <div class="modal-overlay" id="pass-modal">
         <div class="modal">
             <div class="modal-header"><h3 id="pass-modal-title">编辑月卡</h3><button class="modal-close" onclick="hideModal('pass-modal')">&times;</button></div>
             <div class="modal-body">
@@ -400,12 +372,9 @@
             <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('pass-modal')">取消</button><button class="btn btn-primary" onclick="savePass()">保存</button></div>
         </div>
     </div>
-
     <script src="/js/common.js"></script>
     <script src="/js/admin.js"></script>
-
-    <!-- Bulletin Modal -->
-    <div class="modal-overlay" id="bulletin-modal">
+        <div class="modal-overlay" id="bulletin-modal">
         <div class="modal">
             <div class="modal-header"><h3>编辑公告</h3><button class="modal-close" onclick="hideModal('bulletin-modal')">&times;</button></div>
             <div class="modal-body">
@@ -420,9 +389,7 @@
             <div class="modal-footer"><button class="btn btn-default" onclick="hideModal('bulletin-modal')">取消</button><button class="btn btn-primary" onclick="saveBulletin()">保存</button></div>
         </div>
     </div>
-
-    <!-- Receipt Modal -->
-    <div class="modal-overlay" id="receipt-modal">
+        <div class="modal-overlay" id="receipt-modal">
         <div class="modal" style="max-width:420px;">
             <div class="modal-header"><h3>🧾 停车电子小票</h3><button class="modal-close" onclick="hideModal('receipt-modal')">&times;</button></div>
             <div class="modal-body" style="text-align:center;padding:20px;">
@@ -449,7 +416,6 @@
             </div>
         </div>
     </div>
-
     <script>
         // 追加停车计费标签页
         document.addEventListener('DOMContentLoaded', function () {
@@ -462,6 +428,5 @@
             tabs.appendChild(tab);
         });
     </script>
-
 </body>
 </html>

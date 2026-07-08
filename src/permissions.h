@@ -61,7 +61,10 @@ inline std::unordered_set<std::string> getPermissionsForRole(const std::string& 
         BILLING_VIEW,
         RESERVATION_CREATE, RESERVATION_VIEW, RESERVATION_CANCEL,
         BALANCE_VIEW,
-        MESSAGE_SEND
+        MESSAGE_SEND,
+        VEHICLE_QUERY,
+        VEHICLE_CHECKIN,
+        PLATE_RECOGNIZE
     };
 }
 

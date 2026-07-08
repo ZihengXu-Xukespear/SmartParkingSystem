@@ -16,7 +16,7 @@ std::vector<PassPlan> PassPlanService::getActivePlans(const std::string& P_name)
     std::string sql = "SELECT id,plan_name,duration_days,price,description,is_active,COALESCE(P_name,'') FROM PASS_PLAN WHERE is_active=1";
     if (!P_name.empty()) {
         auto conn = getConnection();
-        if (conn) sql += " AND P_name=" + quote(conn->get(), P_name);
+        if (conn) sql += " AND (P_name=" + quote(conn->get(), P_name) + " OR P_name='' OR P_name IS NULL)";
     }
     sql += " ORDER BY duration_days";
     return list(sql);
@@ -115,8 +115,8 @@ bool PassPlanService::purchase(int userId, int planId, const std::string& licens
             std::to_string(days) + " DAY)," + std::to_string(price) + ",1," +
             std::to_string(userId) + "," + std::to_string(planId) + "," + quote(mysql, planPName) + ")";
         if (mysql_query(mysql, sql.c_str()) != 0) {
-            BalanceService::instance().refund(userId, price, "refund", "月卡购买失败退款 " + licensePlate);
-            error = "创建月卡失败，已退款";
+            BalanceService::instance().refund(userId, price, "refund", planName + "购买失败退款 " + licensePlate);
+            error = "创建" + planName + "失败，已退款";
             return false;
         }
     }

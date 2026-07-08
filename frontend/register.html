@@ -57,7 +57,6 @@
             const confirm = document.getElementById('confirm_password').value;
             const telephone = document.getElementById('telephone').value.trim();
             const truename = document.getElementById('truename').value.trim();
-
             if (!username || !password) {
                 showError('alert-box', '用户名和密码不能为空');
                 return;
@@ -74,17 +73,13 @@
                 showError('alert-box', '请输入真实姓名');
                 return;
             }
-
             btn.disabled = true;
             btn.textContent = '注册中...';
-
             const res = await post('/api/auth/register', {
                 username, password, confirm_password: confirm, telephone, truename
             });
-
             btn.disabled = false;
             btn.textContent = '注 册';
-
             if (res && res.ok) {
                 showSuccess('alert-box', '注册成功，即将跳转到登录页...');
                 setTimeout(() => window.location.href = '/index.html', 1500);
@@ -92,7 +87,6 @@
                 showError('alert-box', res?.data?.error || '注册失败');
             }
         }
-
         // Enter key support
         document.addEventListener('keydown', e => {
             if (e.key === 'Enter') handleRegister();

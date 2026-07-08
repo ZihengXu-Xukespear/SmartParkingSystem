@@ -1,17 +1,13 @@
-// Admin page
+
 const user = checkAuth();
 if (user) { initSidebar(); if (!hasPerm('user.view')) { document.querySelector('.main-content').innerHTML = '<div class="card" style="text-align:center;padding:60px"><h2>权限不足</h2></div>'; } }
-
-// Handle URL tab parameter (e.g., ?tab=feedback)
 (function() {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab');
     if (tab) switchTab(tab);
 })();
-
 function roleLabel(r) { const m={admin:'管理员',root:'管理员',user:'普通用户'}; return m[r]||'用户'; }
 function roleBadge(r) { const m={admin:'badge-warning',root:'badge-warning',user:'badge-default'}; return m[r]||'badge-default'; }
-
 function switchTab(tab, ev) {
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('[id^="tab-"]').forEach(t=>t.classList.add('hidden'));
@@ -30,10 +26,9 @@ function switchTab(tab, ev) {
     }
     else if(tab==='notice') loadBulletins();
     else if(tab==='messages') { loadConversations(); if(_selectedMsgUserId>0)selectConversation(_selectedMsgUserId); }
-    else if(tab==='settings') { /* static content, no loading needed */ }
+    else if(tab==='settings') {  }
     else if(tab==='parking-fee') { loadFeeUsers(); }
 }
-
 async function loadBillingLotSelector() {
     const sel = document.getElementById('billing-lot-select');
     if (!sel || sel.options.length > 0) return;
@@ -52,8 +47,6 @@ async function loadPlansLotSelector() {
             `<option value="${escapeHtml(l.P_name)}">${escapeHtml(l.P_name)}</option>`).join('');
     }
 }
-
-// ========== Users ==========
 async function loadUsers() {
     const res = await get('/api/user/list');
     const tbody = document.getElementById('users-table');
@@ -94,8 +87,6 @@ function resetUserModal() {
     document.getElementById('modal-username').value=''; document.getElementById('modal-password').value=''; document.getElementById('modal-password').placeholder='请输入密码';
     document.getElementById('modal-telephone').value=''; document.getElementById('modal-truename').value=''; document.getElementById('modal-role').value='user';
 }
-
-// ========== Recharge ==========
 async function loadUsersForRecharge() {
     const res=await get('/api/user/list'); const sel=document.getElementById('recharge-user');
     if(!res||!res.ok) return;
@@ -109,8 +100,6 @@ async function doRecharge() {
     if(r&&r.ok){showSuccess('recharge-alert','充值成功！新余额: ¥'+parseFloat(r.data.balance).toFixed(2));loadUsersForRecharge();}
     else showError('recharge-alert',r?.data?.error||'充值失败');
 }
-
-// ========== Pass Plans ==========
 async function loadPlans() {
     const res=await get('/api/pass-plans'); const tbody=document.getElementById('plans-table');
     if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="6">加载失败</td></tr>';return;}
@@ -146,8 +135,6 @@ async function openPlanModal(planId, name, days, price, desc, active, pname) {
     if(pname) document.getElementById('plan-lot').value = pname;
     showModal('plan-modal');
 }
-
-// ========== Billing Rules ==========
 async function loadBillingRules() {
     const res=await get('/api/parking/billing-rules'); const tbody=document.getElementById('billing-table');
     if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="8">加载失败</td></tr>';return;}
@@ -204,8 +191,6 @@ async function deleteBillingRule() {
     const r=await request('/api/parking/billing-rules/'+id, {method:'DELETE'});
     if(r&&r.ok){hideModal('billing-modal');showSuccess('alert-box','规则已删除');loadBillingRules();} else alert(r?.data?.error||'删除失败');
 }
-
-// ========== Monthly Passes ==========
 async function loadPasses() {
     const res=await get('/api/parking/monthly-passes'); const tbody=document.getElementById('passes-table');
     if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="9">加载失败</td></tr>';return;}
@@ -236,8 +221,6 @@ async function savePass() {
     else r=await post('/api/parking/monthly-passes',body);
     if(r&&r.ok){hideModal('pass-modal');showSuccess('alert-box','套餐已保存');loadPasses();} else alert(r?.data?.error||'保存失败');
 }
-
-// ========== Vehicle Management ==========
 let allVehicles = [];
 let currentFilter = 'all';
 async function loadVehicles(filter) {
@@ -273,20 +256,17 @@ function showReceipt(plate, data) {
     document.getElementById('receipt-plate').textContent = plate;
     document.getElementById('receipt-in').textContent = formatDateTime(inTime);
     document.getElementById('receipt-out').textContent = formatDateTime(outTime);
-    document.getElementById('receipt-duration').textContent = duration || '计算中...';
+    document.getElementById('receipt-duration').textContent = duration || computeDurationText(inTime, outTime) || '计算中...';
     document.getElementById('receipt-billing').textContent = '标准计费';
     document.getElementById('receipt-fee').textContent = '¥' + parseFloat(fee).toFixed(2);
     showModal('receipt-modal');
 }
-
 async function checkoutVehicle(plate) {
     if (!confirm('确定对 ' + plate + ' 执行出库操作吗？费用将从您的余额扣除。')) return;
     const res = await post('/api/vehicle/checkout', { license_plate: plate });
     if (res && res.ok) { showSuccess('vehicle-mgmt-alert', plate + ' 出库成功！费用: ¥' + parseFloat(res.data.fee).toFixed(2) + '。请在10分钟内驶离'); showReceipt(plate, res.data); loadVehicles('all'); }
     else showError('vehicle-mgmt-alert', res?.data?.error || '出库失败');
 }
-
-// ========== Blacklist ==========
 async function loadBlacklist() {
     const res=await get('/api/blacklist'); const tbody=document.getElementById('blacklist-table');
     if(!res||!res.ok){tbody.innerHTML='<tr><td colspan="5">加载失败</td></tr>';return;}
@@ -303,16 +283,12 @@ async function addBlacklist() {
     if(r&&r.ok){showSuccess('bl-alert','已添加');document.getElementById('bl-plate').value='';document.getElementById('bl-reason').value='';loadBlacklist();}
     else showError('bl-alert',r?.data?.error||'添加失败');
 }
-
-// ========== Reports ==========
 async function loadReports() {
     const summary=await get('/api/report/summary');
     if(summary&&summary.ok){const s=summary.data;document.getElementById('rpt-today').textContent='¥'+parseFloat(s.today_income).toFixed(2);document.getElementById('rpt-month').textContent='¥'+parseFloat(s.month_income).toFixed(2);document.getElementById('rpt-total').textContent='¥'+parseFloat(s.total_income).toFixed(2);document.getElementById('rpt-parking').textContent='¥'+parseFloat(s.parking_fees).toFixed(2);document.getElementById('rpt-passes').textContent='¥'+parseFloat(s.pass_sales).toFixed(2);document.getElementById('rpt-reserve').textContent='¥'+parseFloat(s.reservation_prepaid).toFixed(2);}
     const daily=await get('/api/report/daily');
     if(daily&&daily.ok){const dom=document.getElementById('revenue-chart');if(!dom)return;const chart=echarts.init(dom);chart.setOption({tooltip:{trigger:'axis'},xAxis:{type:'category',data:daily.data.dates,axisLabel:{rotate:45,fontSize:10}},yAxis:{type:'value'},series:[{type:'line',data:daily.data.values,smooth:true,itemStyle:{color:'#1890ff'},areaStyle:{color:'rgba(24,144,255,0.1)'}}],grid:{left:40,right:20,top:20,bottom:50}});}
 }
-
-// ========== Event delegation ==========
 document.addEventListener('click',function(e){
     const t=e.target; if(!t||!t.classList) return;
     const row=t.closest('tr'); if(!row) return;
@@ -331,12 +307,10 @@ document.addEventListener('click',function(e){
     else if(t.classList.contains('btn-edit-bulletin')) { openBulletinModal(parseInt(row.dataset.bulletinId)); }
     else if(t.classList.contains('btn-delete-bulletin')) { deleteBulletin(parseInt(row.dataset.bulletinId)); }
 });
-
 async function deleteUser(id) { if(!confirm('确定删除用户(ID:'+id+')？'))return; const r=await del('/api/user/'+id); if(r&&r.ok){showSuccess('alert-box','已删除');loadUsers();} else showError('alert-box',r?.data?.error||'删除失败'); }
 async function deletePlan(id) { if(!confirm('确定删除此套餐？'))return; const r=await del('/api/pass-plans/'+id); if(r&&r.ok){showSuccess('alert-box','已删除');loadPlans();} else showError('alert-box','删除失败'); }
 async function deactivatePass(id) { if(!confirm('确定停用此套餐？停用后该车牌恢复收费。'))return; const r=await del('/api/parking/monthly-passes/'+id); if(r&&r.ok){showSuccess('alert-box','套餐已停用');loadPasses();} else showError('alert-box','停用失败'); }
 async function removeBlacklist(id) { if(!confirm('确定移除？'))return; const r=await del('/api/blacklist/'+id); if(r&&r.ok){showSuccess('alert-box','已移除');loadBlacklist();} }
-
 async function loadInterceptions() {
     const res = await get('/api/blacklist/interceptions');
     const tbody = document.getElementById('interceptions-table');
@@ -345,7 +319,6 @@ async function loadInterceptions() {
     if (!list.length) { tbody.innerHTML = '<tr><td colspan="4" style="color:#999">暂无拦截记录</td></tr>'; return; }
     tbody.innerHTML = list.map(l => '<tr><td>' + l.id + '</td><td><strong>' + escapeHtml(l.license_plate) + '</strong></td><td>' + escapeHtml(l.reason || '-') + '</td><td>' + formatDateTime(l.intercepted_at) + '</td></tr>').join('');
 }
-
 async function exportReport() {
     const start = document.getElementById('export-start').value || '';
     const end = document.getElementById('export-end').value || '';
@@ -363,8 +336,6 @@ async function exportReport() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
 }
-
-// ========== Bulletin ==========
 async function loadBulletins() {
     const res = await get('/api/bulletin/all');
     const tbody = document.getElementById('bulletins-table');
@@ -426,8 +397,6 @@ async function deleteBulletin(id) {
     if (r && r.ok) { showSuccess('notice-alert', '公告已删除'); loadBulletins(); }
     else showError('notice-alert', r?.data?.error || '删除失败');
 }
-
-// ========== Notice (legacy) ==========
 async function saveNotice() {
     const content = document.getElementById('notice-editor').value.trim();
     if (!content) { showError('notice-alert', '公告内容不能为空'); return; }
@@ -435,11 +404,8 @@ async function saveNotice() {
     if (r && r.ok) showSuccess('notice-alert', '公告已保存');
     else showError('notice-alert', r?.data?.error || '保存失败');
 }
-
-// ========== Message Management (Admin) ==========
 let _selectedMsgUserId = 0;
 let _msgPollTimer = null;
-
 async function loadConversations() {
     const res = await get('/api/message/conversations');
     const list = document.getElementById('conversation-list');
@@ -459,32 +425,25 @@ async function loadConversations() {
                 ${escapeHtml((c.last_message||'').substring(0, 40))}</div>
             <div style="font-size:11px;color:#bbb;margin-top:1px;">${formatDateTime(c.last_time)}</div>
         </div>`).join('');
-
-    // Highlight the currently selected user
-    if (_selectedMsgUserId > 0) {
+        if (_selectedMsgUserId > 0) {
         const sel = list.querySelector(`.msg-convo-item[data-uid="${_selectedMsgUserId}"]`);
         if (sel) sel.style.background = '#e6f7ff';
     }
 }
-
 async function selectConversation(userId) {
     _selectedMsgUserId = userId;
     document.getElementById('msg-chat-header').textContent = '对话中...';
     document.getElementById('msg-chat-messages').innerHTML = '<p style="color:#999;text-align:center;padding:40px;">加载中...</p>';
     document.getElementById('msg-input').value = '';
     document.getElementById('msg-input').focus();
-
-    // Highlight in list
-    document.querySelectorAll('.msg-convo-item').forEach(el => el.style.background = '');
+        document.querySelectorAll('.msg-convo-item').forEach(el => el.style.background = '');
     const item = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
     if (item) item.style.background = '#e6f7ff';
-
     const res = await get('/api/message/history?user_id=' + userId);
     const container = document.getElementById('msg-chat-messages');
     if (!res || !res.ok) { container.innerHTML = '<p style="color:#999;text-align:center;">加载失败</p>'; return; }
     const messages = res.data.messages || [];
     if (!messages.length) { container.innerHTML = '<p style="color:#999;text-align:center;">暂无消息</p>'; return; }
-
     const currentUser = getUser();
     let html = '';
     messages.forEach(m => {
@@ -497,13 +456,10 @@ async function selectConversation(userId) {
     });
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
-
-    // Update header
-    const userItem = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
+        const userItem = document.querySelector(`.msg-convo-item[data-uid="${userId}"]`);
     const userName = userItem ? userItem.querySelector('strong').textContent : '用户';
     document.getElementById('msg-chat-header').textContent = '与 ' + userName + ' 的对话';
 }
-
 async function sendAdminReply() {
     if (_selectedMsgUserId <= 0) { showError('msg-alert', '请先选择一位用户'); return; }
     const input = document.getElementById('msg-input');
@@ -518,25 +474,19 @@ async function sendAdminReply() {
         showError('msg-alert', res?.data?.error || '发送失败');
     }
 }
-
-// Enter key to send
 document.addEventListener('DOMContentLoaded', function() {
     const input = document.getElementById('msg-input');
     if (input) input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAdminReply(); }
     });
 });
-
-// ========== Parking Fee (Task D) ==========
 async function loadFeeUsers() {
     const res = await get('/api/user/list');
     const sel = document.getElementById('fee-user-id');
     if (!res || !res.ok || !sel) return;
     sel.innerHTML = '<option value="">选择用户...</option>' + res.data.users.map(u =>
-        `<option value="${u.id}">${escapeHtml(u.username)} (${roleLabel(u.role)}) - ¥${parseFloat(u.balance||0).toFixed(2)}</option>`
-    ).join('');
+        `<option value="${u.id}">${escapeHtml(u.username)} (${roleLabel(u.role)}) - ¥${parseFloat(u.balance||0).toFixed(2)}</option>`    ).join('');
 }
-
 async function calculateParkingFee() {
     const userId = document.getElementById('fee-user-id').value;
     const plate = document.getElementById('fee-plate').value.trim();
@@ -553,9 +503,7 @@ async function calculateParkingFee() {
     if (userId) {
         const bal = await get('/api/balance/' + userId);
         if (bal && bal.ok) document.getElementById('show-balance').textContent = parseFloat(bal.data.balance).toFixed(2);
-
-        // Check monthly pass for target user and plate
-        document.getElementById('show-pass').textContent = '查询中...';
+                document.getElementById('show-pass').textContent = '查询中...';
         const passRes = await get('/api/parking/monthly-passes?user_id=' + userId + '&plate=' + encodeURIComponent(plate));
         if (passRes && passRes.ok && passRes.data.passes && passRes.data.passes.length > 0) {
             const p = passRes.data.passes[0];
@@ -580,8 +528,5 @@ async function doParkingDeduct() {
         document.getElementById('show-balance').textContent = parseFloat(r.data.balance).toFixed(2);
     } else { showError('parking-alert', r?.data?.message || r?.data?.error || '扣费失败'); }
 }
-
 loadUsers();
-
-// ========== Feedback / Chat ==========
 let currentChatUserId = 0;

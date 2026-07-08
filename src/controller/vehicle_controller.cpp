@@ -8,6 +8,7 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/vehicle/checkin").methods("POST"_method)([](const crow::request& req) {
         if (!BaseController::checkPermission(req, Permissions::VEHICLE_CHECKIN))
             return BaseController::errorResponse(403, "权限不足");
+        auto auth = BaseController::authenticate(req);
         auto body = BaseController::parseBody(req);
         if (!body) return BaseController::errorResponse(400, "Invalid JSON");
 
@@ -16,9 +17,11 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
         if (body.has("billing_type")) billing_type = body["billing_type"].s();
         std::string P_name = body.has("P_name") ? std::string(body["P_name"].s()) : "";
         int spotNum = body.has("spot_number") ? body["spot_number"].i() : 0;
+        std::string charging_plan;
+        if (body.has("charging_plan")) charging_plan = std::string(body["charging_plan"].s());
 
         std::string error;
-        if (!VehicleService::instance().checkIn(plate, billing_type, P_name, spotNum, error))
+        if (!VehicleService::instance().checkIn(plate, billing_type, P_name, spotNum, auth.first, charging_plan, error))
             return BaseController::errorResponse(400, error);
 
         crow::json::wvalue res;
@@ -52,11 +55,12 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/vehicle/query").methods("GET"_method)([](const crow::request& req) {
         if (!BaseController::checkPermission(req, Permissions::VEHICLE_QUERY))
             return BaseController::errorResponse(403, "权限不足");
+        auto auth = BaseController::authenticate(req);
         std::string plate = req.url_params.get("plate") ? req.url_params.get("plate") : "";
         std::string start = req.url_params.get("start") ? req.url_params.get("start") : "";
         std::string end = req.url_params.get("end") ? req.url_params.get("end") : "";
 
-        auto records = VehicleService::instance().queryRecords(plate, start, end);
+        auto records = VehicleService::instance().queryRecords(plate, start, end, auth.first, auth.second);
         crow::json::wvalue res;
         res["records"] = BaseController::toJsonArray(records);
         res["total"] = (int)records.size();
@@ -66,8 +70,9 @@ void VehicleController::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/vehicle/parked").methods("GET"_method)([](const crow::request& req) {
         if (!BaseController::checkPermission(req, Permissions::VEHICLE_QUERY))
             return BaseController::errorResponse(403, "权限不足");
+        auto auth = BaseController::authenticate(req);
         std::string plate = req.url_params.get("plate") ? req.url_params.get("plate") : "";
-        auto records = VehicleService::instance().getParkedVehicles(plate);
+        auto records = VehicleService::instance().getParkedVehicles(plate, auth.first, auth.second);
         crow::json::wvalue res;
         res["records"] = BaseController::toJsonArray(records);
         res["total"] = (int)records.size();

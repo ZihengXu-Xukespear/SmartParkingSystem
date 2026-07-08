@@ -8,8 +8,7 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
+                <div class="sidebar">
             <div class="sidebar-logo">
                 <h2>Smart Parking</h2>
                 <p>智慧停车管理系统</p>
@@ -24,8 +23,14 @@
                 <a class="nav-item" id="nav-checkin" href="/checkin.html">
                     <span class="icon">&#9971;</span> 车辆入库
                 </a>
+                <a class="nav-item" id="nav-user-checkin" href="/user-checkin.html">
+                    <span class="icon">&#128664;</span> 智能入库
+                </a>
                 <a class="nav-item" id="nav-vehicles" href="/vehicles.html">
                     <span class="icon">&#128663;</span> 车辆信息
+                </a>
+                <a class="nav-item" id="nav-billing" href="/billing-rules.html">
+                    <span class="icon">&#128176;</span> 计费规则
                 </a>
                 <a class="nav-item" id="nav-admin" href="/admin.html">
                     <span class="icon">&#128100;</span> 管理页面
@@ -54,42 +59,37 @@
                 <button class="btn btn-default btn-sm btn-block" onclick="logout()">退出登录</button>
             </div>
         </div>
-
-        <!-- Main Content -->
-        <div class="main-content">
+                <div class="main-content">
             <div class="page-header">
                 <h1>车牌识别</h1>
                 <p>使用摄像头识别车牌号，并与系统已登记车辆进行比对</p>
             </div>
-
             <div class="row">
                 <div class="col-2">
-                    <!-- Camera Card -->
-                    <div class="card">
+                                        <div class="card">
                         <div class="card-title">摄像头</div>
                         <div id="camera-container" style="text-align:center;background:#000;border-radius:8px;overflow:hidden;min-height:320px;display:flex;align-items:center;justify-content:center">
                             <video id="camera-preview" autoplay playsinline style="max-width:100%;max-height:400px;display:none"></video>
-                            <p id="camera-placeholder" style="color:#999;font-size:14px">点击下方按钮开启摄像头</p>
+                            <img id="upload-preview" alt="" style="max-width:100%;max-height:400px;display:none;object-fit:contain">
+                            <p id="camera-placeholder" style="color:#999;font-size:14px">点击下方按钮开启摄像头，或上传车牌图片进行识别</p>
                         </div>
                         <div class="actions mt-2" style="display:flex;gap:10px;flex-wrap:wrap">
                             <button class="btn btn-primary" id="btn-start-camera" onclick="startCamera()">开启摄像头</button>
                             <button class="btn btn-success" id="btn-capture" onclick="captureAndRecognize()" disabled>拍照识别</button>
                             <button class="btn btn-default" id="btn-stop-camera" onclick="stopCamera()" disabled>关闭摄像头</button>
+                            <button class="btn btn-primary" id="btn-upload" onclick="document.getElementById('upload-input').click()">📁 上传图片识别</button>
+                            <input type="file" id="upload-input" accept="image/*" style="display:none" onchange="uploadAndRecognize(event)">
                         </div>
                     </div>
-
-                    <!-- Recent captures -->
-                    <div class="card">
+                                        <div class="card">
                         <div class="card-title">识别记录</div>
                         <div id="history-container">
                             <p style="color:#999;font-size:13px">暂无识别记录</p>
                         </div>
                     </div>
                 </div>
-
                 <div class="col-1">
-                    <!-- Recognition Result -->
-                    <div class="card">
+                                        <div class="card">
                         <div class="card-title">识别结果</div>
                         <div id="result-container">
                             <div id="result-placeholder" style="text-align:center;padding:40px 0;color:#999">
@@ -123,9 +123,7 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Manual Check -->
-                    <div class="card">
+                                        <div class="card">
                         <div class="card-title">手动查询</div>
                         <p style="color:#666;font-size:13px;margin-bottom:10px">手动输入车牌号查询登记状态</p>
                         <div class="form-row" style="gap:6px">
@@ -138,7 +136,6 @@
             </div>
         </div>
     </div>
-
     <script src="/js/common.js"></script>
     <script src="/js/recognize.js"></script>
 </body>

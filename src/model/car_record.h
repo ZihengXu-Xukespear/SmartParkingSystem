@@ -15,6 +15,8 @@ public:
     std::string exit_deadline;
     std::string P_name;
     int spot_number = 0;
+    int operator_id = 0;
+    double charging_fee = 0.0;
 
     int getId() const override { return id; }
     void setId(int id_) override { id = id_; }
@@ -33,6 +35,8 @@ public:
         j["exit_deadline"] = exit_deadline;
         j["P_name"] = P_name.empty() ? location : P_name;
         j["spot_number"] = spot_number;
+        j["operator_id"] = operator_id;
+        j["charging_fee"] = charging_fee;
         return j;
     }
 };

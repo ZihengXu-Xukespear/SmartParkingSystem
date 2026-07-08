@@ -7,5 +7,10 @@
     "parking_name": "智慧停车场",
     "fee": 5.00,
     "capacity": 100,
-    "server_port": 8080
+    "server_port": 8080,
+    "notice_expire_minutes": 30,
+    "notice": "欢迎使用智慧停车场管理系统！",
+    "llm_base_url": "http://your-llm-host:port",
+    "llm_model": "glm-5.2",
+    "llm_api_key": "your_llm_api_key_here"
 }

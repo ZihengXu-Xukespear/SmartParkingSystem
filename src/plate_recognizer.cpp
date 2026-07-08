@@ -12,6 +12,8 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <sys/wait.h>
 #endif
 
 PlateRecognizer& PlateRecognizer::instance() {
@@ -44,23 +46,65 @@ std::vector<uchar> PlateRecognizer::base64Decode(const std::string& data) {
 }
 
 // ========== Python discovery (works with or without OpenCV) ==========
-static std::string findPython() {
+// Collect every python on PATH instead of only the first one, so we can pick
+// the interpreter that actually has the OCR dependencies installed.
+static std::vector<std::string> pythonCandidates() {
+    std::vector<std::string> out;
 #ifdef _WIN32
     FILE* fp = _popen("where python 2>nul", "r");
     if (fp) {
-        char line[1024] = {};
-        if (fgets(line, sizeof(line), fp)) {
+        char line[1024];
+        while (fgets(line, sizeof(line), fp)) {
             std::string s(line);
             s.erase(s.find_last_not_of(" \r\n") + 1);
-            _pclose(fp);
-            if (!s.empty()) return s;
+            if (!s.empty()) out.push_back(s);
         }
         _pclose(fp);
     }
-    return "python";
+    out.push_back("python");
 #else
-    return "python3";
+    out.push_back("python3");
+    out.push_back("python");
 #endif
+    return out;
+}
+
+// Returns true if the interpreter can import the OCR deps the bridge needs.
+static bool pythonHasOcrDeps(const std::string& python) {
+    std::string cmd = "\"" + python + "\" -c \"import hyperlpr3;import cv2\"";
+#ifdef _WIN32
+    cmd += " 2>nul";
+    FILE* fp = _popen(cmd.c_str(), "r");
+#else
+    cmd += " 2>/dev/null";
+    FILE* fp = popen(cmd.c_str(), "r");
+#endif
+    if (!fp) return false;
+    char buf[256];
+    while (fgets(buf, sizeof(buf), fp)) { /* drain */ }
+#ifdef _WIN32
+    int status = _pclose(fp);
+    return status == 0;
+#else
+    int status = pclose(fp);
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+#endif
+}
+
+static std::string findPython() {
+    static std::string resolved;
+    static bool done = false;
+    if (done) return resolved;
+
+    for (const auto& cand : pythonCandidates()) {
+        if (pythonHasOcrDeps(cand)) { resolved = cand; done = true; return resolved; }
+    }
+    // Nothing could import the deps — fall back to the first candidate so the
+    // bridge itself can surface a clear "pip install hyperlpr3" error.
+    auto cands = pythonCandidates();
+    resolved = cands.empty() ? "python" : cands.front();
+    done = true;
+    return resolved;
 }
 
 static std::string findHyperLprBridge() {
@@ -145,6 +189,9 @@ static PlateRecognizer::RecognitionResult callPythonBridge(const std::string& im
     result.message = jsonField(resp, "message");
     if (result.message.empty() && !result.plate_number.empty())
         result.message = "识别成功";
+    // Surface bridge errors (e.g. {"error":"Import error: ..."}) instead of a blank message
+    if (result.message.empty())
+        result.message = jsonField(resp, "error");
 
     return result;
 }

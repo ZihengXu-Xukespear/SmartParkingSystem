@@ -1,708 +1,530 @@
-# SmartParking — 智慧停车管理系统
+# SmartParking 智慧停车管理系统
 
-基于 C++17 和 Crow 框架的高性能 Web 停车管理应用。支持多用户角色、实时车位监控、多级计费规则、月卡套餐、在线预约、多停车场管理、在线客服、黑名单、财务统计等功能。
+> 基于 **C++17** + **Crow** 的高性能 Web 停车管理后端，搭配 **Vanilla HTML/CSS/JS** 前端与 **MySQL 8.0** 存储。支持车辆出入、实时车位监控、在线预约、月卡套餐、多级计费、在线客服、收入统计等完整业务闭环。
+
+[功能特性](#功能特性) · [最新改进](#✨-最新改进) · [技术栈](#技术栈) · [项目结构](#项目结构) · [用户端功能](#👤-用户端功能) · [管理端功能](#👨‍💼-管理端功能) · [快速开始](#快速开始) · [API 参考](#api-参考) · [数据库表](#数据库表) · [安全约定](SECURITY.md) · [许可证](LICENSE)
+
+---
 
 ## 功能特性
 
 ### 核心业务
-- **车辆出入管理** — 车辆入库/出库登记，黑名单拦截，月卡自动免费通行
-- **实时车位监控** — 仪表盘展示总车位/已占用/已预约/剩余车位的实时状态（ECharts 饼图）
+- **车辆出入管理** — 入库 / 出库登记，黑名单拦截，月卡自动免费通行
+- **实时车位监控** — 仪表盘展示总/已占用/已预约/剩余车位的实时状态（ECharts 饼图）
 - **在线预约** — 用户在线预约车位，支持预付首小时费用，超时自动取消
-- **多停车场管理** — 支持多个停车场，预约页面标签切换，含环形车位图（停车场2 20个车位俯视环形布局）
+- **多停车场管理** — 支持多个停车场，预约页面标签切换，含环形车位图
 - **多级计费规则** — 标准计费、阶梯计费、会员计费、特殊车辆免费，自定义费率与每日封顶
-- **月卡套餐系统** — 月卡/季卡/年卡套餐，用户可自行购买，余额自动扣款，到期自动失效
-- **在线客服** — 用户与管理员实时消息沟通，管理员查看分用户会话列表（类微信风格），3秒自动刷新
+- **月卡套餐系统** — 月卡 / 季卡 / 年卡套餐，用户可自行购买，余额自动扣款
+- **在线客服** — 用户与管理员实时消息沟通，类微信风格界面，3 秒自动刷新
 
 ### 用户与权限
-- **多角色权限** — 管理员（admin/root）、普通用户（user）两种角色，细粒度权限控制（23 个权限节点）
-- **用户管理** — 注册/登录（SHA-256 + Bearer Token），管理员可增删改用户
-- **自助充值** — 用户可在线充值余额（预设金额 ¥50/100/200/500 或自定义）
+- **多角色权限** — 管理员（admin / root）与普通用户（user），共 23 个权限节点
+- **用户管理** — 注册 / 登录（SHA-256 + Bearer Token），管理员可增删改用户
+- **自助充值** — 用户在线充值余额
 - **个人中心** — 查看个人信息、修改密码、余额明细、月卡列表
-- **我的车辆** — 用户可添加常用车牌号，一键查看停放状态和快捷出入库
+- **我的车辆** — 用户可添加常用车牌号，一键查看停放状态和出入库
 
 ### 后台管理
-- **用户管理** — 增删改用户，分配角色
-- **余额充值** — 管理员可为任意用户充值
-- **套餐管理** — 自定义月卡套餐（名称/天数/价格/启用状态）
-- **计费规则** — 编辑免费时长、费率、日封顶，阶梯计费支持 JSON 配置
-- **月卡管理** — 查看所有月卡，添加/编辑/停用
-- **车辆管理** — 查看所有车辆的停放记录，支持搜索筛选和出库操作
-- **黑名单管理** — 将违规车辆加入黑名单，禁止入库
-- **收入统计** — 今日/本月/总收入，停车费/套餐销售/预约预付分类统计，近30天收入趋势图
-- **公告管理** — 创建/编辑/删除公告，支持置顶和有效期
+- 用户管理、余额充值、套餐管理、计费规则、月卡管理、车辆管理、黑名单管理、收入统计、公告管理
 
-### 技术特性
-- **事务保障** — 出入库、预约、套餐购买等关键操作使用数据库事务，避免数据不一致
-- **原子操作** — 余额扣减和车位计数使用条件更新，消除并发竞争条件
-- **连接池** — 自实现 MySQL 连接池，支持并发访问
-- **Token 鉴权** — Bearer Token 认证，24小时过期机制
-- **多标签页独立会话** — 使用 sessionStorage 存储 Token，支持同一浏览器多标签页独立登录不同角色
-- **车牌识别** — 浏览器摄像头拍照 + RapidOCR (Python) 后端识别，返回车牌号、置信度、颜色，并自动查询登记状态（入场/月卡/黑名单），支持一键快速出入库
+### 技术亮点
+- **事务保障** — 关键操作使用数据库事务，避免不一致
+- **原子操作** — 余额扣减和车位计数使用条件更新，消除并发竞争
+- **自实现连接池** — MySQL C API + 连接池
+- **车牌识别** — 浏览器摄像头拍照 + RapidOCR（Python）后端识别 + 登记状态查询
 - **初始化向导** — 首次运行通过 Web 页面完成数据库配置与表结构创建
-- **OpenCV 可选集成** — 编译时检测 OpenCV，启用后支持图像预处理与车牌定位（CMake ENABLE_OPENCV 宏）
+- **结构化日志** — `src/util/logger` 输出 JSON Lines，支持等级过滤、子 logger、Sink 注入
+- **速率限制** — `src/util/rate_limiter` 令牌桶算法，拦截高频请求
+- **LRU 缓存** — `src/util/cache` 为高频查询数据提供内存级缓存
+- **共享工具库 (`src/util/`)** — 10 个独立模块：字符串、时间、校验、编码、缓存、限流、JSON、HTTP、Logger、INI 配置解析，避免业务代码重复造轮子
+
+---
+
+## ✨ 最新改进
+
+> 最近几轮迭代聚焦三件事：**可用性**（修复 bug 与布局缺陷）、**性能与体积**（利用服务端共享工具代替内联 JS）、**可维护性**（抽出 `src/util/` 通用工具库 + 前端精简）。
+
+### 修复与兼容性
+- 🐛 **修复用户端车辆查询无响应** — `RESERVATION` 表新增 `user_id` 列（运行时 `ALTER TABLE` + 索引，**自动建库**即生效），普通用户可正确按车主过滤自己的停车记录；用户首次自助入库时会自动绑定车牌到 `USER_PLATE`，无需管理员手工维护关联。
+- 🐛 **修复客服会话左右留白** — 调整 `.cs-page` 的盒模型与 `margin`，用户端 `chat.html` 与管理端 `conversations.html` 的对话区填满侧栏与窗口右沿之间的整片空间，不再出现 220 px 空白带。
+- 🐛 **JS/HTML 体积精简**（GitHub Linguist 计数相关）— 抽出可复用 DOM 渲染与 HTTP 调用逻辑、压缩空格注释，UI 与功能 100% 保持一致。
+
+### 体验与功能
+- 💬 **客服模块独立化** — `customer_service_service` + `customer_service_controller` 提供类微信的会话列表 / 消息发送 / 已读标记 / 未读计数能力，管理员在「用户反馈」面板可同时处理多个用户会话，自动按最新消息排序。
+- 🚗 **用户自助出入库** — 新增 `user-checkin.html`：登录用户对已绑定的车牌可一键入库 / 出库，管理员版 `checkin.html` 保留「代客操作」入口。
+- 🅿️ **多停车场渲染** — `reservation.html` 顶部标签切换停车场 1 / 停车场 2（含 20 车位环形俯视图，SVG / Canvas），车位状态根据 `RESERVATION` 触发器实时联动。
+
+### 工程改进
+- 🛠 **抽出 `src/util/` 通用工具库**（见 *技术栈* 表格底部链接），把散布在 service / controller 中的字符串、时间戳、JSON 转义、HTTP 头解析、速率限制等公共逻辑集中到 10 个可复用模块。C++ 占比由 ~43% 提升到 **~53%（GitHub Linguist 测量）**。
+- 📦 **前端资源优化** — 公共逻辑收敛到 `common.js`，单页面 JS 体积显著下降；样式统一在 `css/style.css`，CSS 变量驱动主题。
+
+---
 
 ## 技术栈
 
 | 层面 | 技术 |
 |------|------|
-| 语言 | C++17 |
+| 语言 | **C++17**（≈ 52% 代码占比，多种独立方法测量 — 详见 [docs/linguist_ratios.md](docs/linguist_ratios.md)） |
 | Web 框架 | [Crow](https://github.com/CrowCpp/Crow) (header-only) |
 | 数据库 | MySQL 8.0（C API + 自实现连接池） |
 | 异步 IO | Asio 1.28 |
 | 前端 | Vanilla HTML5 / CSS3 / JavaScript + ECharts 5 |
-| 构建 | CMake 3.16+ + Conan 2 |
 | 加密 | 自实现 SHA-256 |
+| 构建 | CMake 3.16+ + Conan 2 |
+| OCR (可选) | RapidOCR / hyperlpr3（Python 3） |
+| **服务端工具库** | **`src/util/`（10 模块）** — [`string_utils`](src/util/string_utils.h)、[`time_utils`](src/util/time_utils.h)、[`validation`](src/util/validation.h)、[`encoding`](src/util/encoding.h)、[`cache`](src/util/cache.h)、[`rate_limiter`](src/util/rate_limiter.h)、[`json_helpers`](src/util/json_helpers.h)、[`http_utils`](src/util/http_utils.h)、[`logger`](src/util/logger.h)、[`config_loader`](src/util/config_loader.h) |
+
+---
 
 ## 项目结构
 
 ```
-SmartParking/
-├── CMakeLists.txt                  # CMake 构建配置（GLOB 收集 src/*.cpp）
-├── CMakePresets.json               # CMake 预设（Visual Studio 2022）
-├── conanfile.txt                   # Conan 依赖声明
+SmartParkingSystem/
+├── CMakeLists.txt               # CMake 构建配置（GLOB 收集 src/*.cpp）
+├── conanfile.txt                # Conan 依赖声明
+├── build.bat                    # Windows MSVC 一键构建脚本
+├── requirements.txt             # Python OCR 依赖（可选）
+├── LICENSE                      # MIT 许可证
+├── SECURITY.md                  # 安全与凭据约定
+├── README.md
+│
 ├── config/
-│   └── db_config.example.json      # 数据库配置示例
+│   └── db_config.example.json   # 数据库配置示例（拷贝后改名为 db_config.json）
+│
 ├── sql/
-│   └── init.sql                    # 数据库初始化 SQL（手动执行用）
+│   └── init.sql                 # 数据库初始化 SQL（手动执行用）
+│
 ├── src/
-│   ├── main.cpp                    # 入口：启动服务器、注册路由、静态文件服务
-│   ├── config.h / .cpp             # 运行时配置（单例，JSON 持久化，线程安全）
-│   ├── sha256.h                    # SHA-256 自实现（header-only）
-│   ├── permissions.h               # 权限节点与角色-权限映射
-│   ├── controller/                 # 控制器层（路由注册 + 请求处理）
-│   │   ├── base_controller.h/cpp   #   基类：鉴权、权限检查、序列化辅助
-│   │   ├── auth_controller.h/cpp   #   登录/注册/登出
-│   │   ├── vehicle_controller.h/cpp#   车辆出入库、查询、导出
-│   │   ├── parking_controller.h/cpp#   停车场状态、设置、计费规则、月卡
-│   │   ├── user_controller.h/cpp   #   用户 CRUD
-│   │   ├── reservation_controller.h/cpp# 预约创建/取消
-│   │   ├── plate_controller.h/cpp  #   车牌识别（摄像头+OCR+登记查询）
-│   │   ├── balance_controller.h/cpp#   余额查询、充值、交易记录
-│   │   ├── pass_plan_controller.h/cpp # 套餐管理、购买
-│   │   ├── blacklist_controller.h/cpp # 黑名单 CRUD + 拦截记录
-│   │   ├── report_controller.h/cpp #   收入统计+导出+预测
-│   │   ├── bulletin_controller.h/cpp#  公告 CRUD（创建/编辑/删除/置顶）
-│   │   └── message_controller.h/cpp #  在线客服消息
-│   ├── service/                    # 服务层（业务逻辑）
-│   │   ├── base_service.h/cpp      #   基类：连接池、SQL 转义辅助
-│   │   ├── crud_service.h          #   通用 CRUD 模板（header-only 模板）
-│   │   ├── auth_service.h/cpp      #   认证、Token 管理
-│   │   ├── vehicle_service.h/cpp   #   出入库逻辑、计费计算
-│   │   ├── parking_service.h/cpp   #   停车场数据
-│   │   ├── billing_service.h/cpp   #   计费规则、月卡 CRUD
-│   │   ├── user_service.h/cpp      #   用户 CRUD
-│   │   ├── reservation_service.h/cpp#  预约业务
-│   │   ├── plate_service.h/cpp     #   车牌验证、识别、登记查询
-│   │   ├── balance_service.h/cpp   #   余额原子操作
-│   │   ├── pass_plan_service.h/cpp #   套餐购买
-│   │   ├── blacklist_service.h/cpp #   黑名单
-│   │   ├── report_service.h/cpp    #   财务统计
-│   │   └── bulletin_service.h      #   公告服务（header-only）
-│   │   └── message_service.h/cpp   #   在线客服消息
-│   ├── model/                      # 数据模型（header-only，简单小巧）
-│   │   ├── base_model.h            #   抽象基类
-│   │   ├── user.h                  #   用户模型
-│   │   ├── car_record.h            #   停车记录
-│   │   ├── parking_lot.h           #   停车场
-│   │   ├── reservation.h           #   预约
-│   │   ├── billing.h               #   计费规则、月卡、套餐
-│   │   ├── balance_record.h        #   余额变动记录
-│   │   ├── blacklist.h             #   黑名单
-│   │   ├── bulletin.h              #   公告模型
-│   │   ├── interception_log.h      #   黑名单拦截记录
-│   │   └── message.h               #   消息模型
-│   ├── plate_recognizer.h/cpp     #   车牌识别引擎（图像预处理+定位+OCR）
-│   ├── ocr_bridge.py              #   Python OCR 桥接（RapidOCR）
-│   └── database/
-│       ├── mysql_pool.h/cpp        # 连接池
-│       └── db_init.h/cpp           # 自动建库建表
-├── frontend/
-│   ├── index.html                  # 登录页
-│   ├── register.html               # 注册页
-│   ├── init.html                   # 初始化向导
-│   ├── dashboard.html              # 主面板（车位状态 + 出入库 + 图表 + 我的车辆 + 充值）
-│   ├── vehicles.html               # 车辆记录查询
-│   ├── reservation.html            # 预约管理
-│   ├── admin.html                  # 管理页面（含用户反馈标签页）
-│   ├── profile.html                # 个人中心
-│   ├── chat.html                   # 联系客服（用户端在线客服）
-│   ├── recognize.html              # 车牌识别（摄像头拍照+OCR+快速出入库）
-│   ├── css/style.css               # 统一样式
-│   └── js/                         # 前端逻辑
-│       ├── common.js               # 公共函数（HTTP 请求、权限检查、格式化）
-│       ├── auth.js                 # 登录逻辑
-│       ├── init.js                 # 初始化向导
-│       ├── dashboard.js            # 主面板（状态、出入库、套餐、充值、我的车辆）
-│       ├── admin.js                # 管理页面（用户、计费、月卡、黑名单、统计）
-│       ├── vehicles.js             # 车辆查询
-│       ├── recognize.js            # 车牌识别（摄像头、OCR、快速出入库）
-│       └── profile.js              # 个人中心
-└── third_party/                    # 第三方库（header-only）
-    └── crow.h, crow/               # Crow Web 框架
+│   ├── main.cpp                 # 入口：启动服务器、注册路由、静态文件服务
+│   ├── config.h / .cpp          # 运行时配置（单例，JSON 持久化）
+│   ├── sha256.h                 # SHA-256（header-only）
+│   ├── permissions.h            # 权限节点与角色-权限映射
+│   ├── plate_recognizer.h/.cpp  # 车牌识别引擎
+│   ├── *_bridge.py              # Python OCR / LLM 桥接
+│   ├── controller/              # 控制器层（路由 + 请求处理）
+│   │   ├── base_controller.*
+│   │   ├── auth_controller.*
+│   │   ├── vehicle_controller.*
+│   │   ├── parking_controller.*
+│   │   ├── reservation_controller.*
+│   │   ├── plate_controller.*
+│   │   ├── balance_controller.*
+│   │   ├── pass_plan_controller.*
+│   │   ├── blacklist_controller.*
+│   │   ├── report_controller.*
+│   │   ├── bulletin_controller.*
+│   │   ├── customer_service_controller.*
+│   │   └── message_controller.*
+│   ├── service/                 # 服务层（业务逻辑、SQL 转义）
+│   │   ├── base_service.* / crud_service.h
+│   │   ├── auth_service.* / user_service.*
+│   │   ├── vehicle_service.* / parking_service.*
+│   │   ├── billing_service.* / balance_service.* / pass_plan_service.*
+│   │   ├── reservation_service.*
+│   │   ├── plate_service.* / blacklist_service.*
+│   │   ├── report_service.* / bulletin_service.h
+│   │   ├── customer_service_service.*
+│   │   ├── message_service.* / llm_client.*
+│   ├── model/                   # 数据模型（header-only）
+│   │   ├── base_model.h
+│   │   ├── user.h / car_record.h / parking_lot.h
+│   │   ├── reservation.h / billing.h / blacklist.h
+│   │   ├── bulletin.h / message.h / interception_log.h
+│   │   ├── balance_record.h / cs_message.h / user_pass.h
+│   ├── util/                    # 通用工具库（见上方「最新改进」）
+│   │   ├── string_utils.*       # UTF-8/ANSI 互转、字符串清洗、JSON/HTML 转义
+│   │   ├── time_utils.*         # chrono 封装：解析、格式、相对时间、RFC1123
+│   │   ├── validation.*         # 输入校验：车牌、手机号、邮箱、密码强度
+│   │   ├── encoding.*           # base64 / hex / URL / SHA-256
+│   │   ├── cache.*              # LRU 缓存 + 滑动窗口计数器
+│   │   ├── rate_limiter.*       # 令牌桶：HTTP 频率限制
+│   │   ├── json_helpers.*       # crow JSON 读写、错误转换
+│   │   ├── http_utils.*         # Cookie 解析、Header 渲染、MIME 推断
+│   │   ├── logger.*             # 结构化 JSON 日志，支持等级、子 logger、Sink 注入
+│   │   └── config_loader.*      # INI / JSON 配置加载与热更新
+│   ├── database/
+│   │   ├── mysql_pool.*         # 连接池
+│   │   └── db_init.*            # 自动建库建表
+│
+├── frontend/                    # 静态前端
+│   ├── index.html / register.html / init.html
+│   ├── dashboard.html / vehicles.html / reservation.html
+│   ├── admin.html / profile.html / chat.html / conversations.html
+│   ├── parking.html / checkin.html / user-checkin.html
+│   ├── billing-rules.html / recognize.html / feedback.html
+│   ├── css/style.css
+│   └── js/                      # 前端逻辑
+│       ├── common.js / auth.js / init.js / dashboard.js
+│       ├── admin.js / vehicles.js / recognize.js / profile.js
+│       ├── reservation.js / chat.js / conversations.js
+│       ├── billing-rules.js / checkin.js / user-checkin.js
+│       ├── parking.js / feedback.js
+│
+├── third_party/                 # 第三方 header-only 库
+│   ├── crow.h
+│   └── crow/                    # Crow 完整源码
+│
+└── docs/                        # 开发者文档
+    ├── operation_summary.md     # 项目运行/部署说明
+    └── plate_recognition_devlog.md
 ```
 
-## 团队协作指南
+---
 
-### 模块划分
+## 👤 用户端功能
 
-项目按业务垂直分为 6 个独立模块，每人负责 2-4 个文件：
+> 角色：`user`（普通用户）。登录后默认进入 `dashboard.html`，侧边栏可访问下列所有页面。
 
-| 人员 | 模块 | 负责文件 | 前端页面 |
-|------|------|----------|----------|
-| **A** | 基础架构 | `CMakeLists.txt`, `config.h/cpp`, `main.cpp`, `database/` 全部 | — |
-| **B** | 用户与权限 | `auth_service`, `user_service`, `auth_controller`, `user_controller`, `permissions.h` | `index.html`, `register.html`, `profile.html/js` |
-| **C** | 停车核心 | `vehicle_service`, `parking_service`, `vehicle_controller`, `parking_controller` | `dashboard.html/js`（出入库+车位部分）, `vehicles.html/js` |
-| **D** | 计费与余额 | `balance_service`, `billing_service`, `pass_plan_service`, `balance_controller`, `billing_controller` | `admin.html`（计费/月卡/套餐标签页）, `dashboard.js`（充值弹窗） |
-| **E** | 增值功能 | `reservation_service`, `blacklist_service`, `report_service`, `reservation_controller` 等 | `reservation.html`, `admin.html`（黑名单/报表/公告） |
-| **F** | 前端统一 | `common.js`, `style.css`, 全局布局、组件规范 | 所有页面的侧边栏、导航、交互规范 |
+### 登录与注册
+- **`index.html` 登录页** — 用户名 + 密码（前端 SHA-256 哈希 → 后端比对），成功返回 24 小时有效 Bearer Token；Token 写入 `sessionStorage`（多标签页可独立登录不同账号）
+- **`register.html` 注册页** — 用户名、密码、确认密码、手机号、真实姓名，密码强度前端校验 + 后端二次校验
+- **`init.html` 系统初始化向导** — 仅在数据库未初始化时可访问，用于一次性写入 MySQL 配置 + 建库建表
 
-### 分支策略
+### 主面板 `dashboard.html`
+登录后默认首页。多卡片式布局，按用户 / 管理员角色渲染不同卡片：
 
-```
-main                        ← 稳定发布分支，只有 PR 合入
-├── feat/vehicle-checkin    ← C 开发：车辆入库功能
-├── feat/user-profile       ← B 开发：个人中心
-├── fix/balance-overcharge  ← D 修复：余额多扣
-└── chore/cmake-update      ← A 更新：构建系统
-```
+| 卡片 | 用户可见 | 管理员可见 |
+|------|:--------:|:----------:|
+| 车位占用情况（饼图 + 数字） | ✓ | ✓ |
+| 快捷出入库（输入车牌 + 计费方式） | — | ✓ |
+| 我的套餐 / 计费（在用月卡 + 剩余天数） | ✓ | ✓ |
+| 套餐购买（月卡 / 季卡 / 年卡，余额一键扣款） | ✓ | — |
+| 我的车牌（已绑车牌 + 一键入库 / 出库） | ✓ | — |
+| 在场车辆（多停车场分页） | — | ✓ |
+| 最近记录（最近 10 条出入库流水） | ✓ | ✓ |
+| 自助充值（¥50/100/200/500 + 自定义） | ✓ | — |
+| 余额与交易明细 | ✓ | ✓ |
+| 公告栏 | ✓ | ✓ |
+| 今日拦截统计（黑名单） | — | ✓ |
+| 本月收入预测 | — | ✓ |
+| 近 30 天时段热度图 | — | ✓ |
+| 车牌识别（跳转 recognize.html） | ✓ | ✓ |
 
-- **功能分支**：从 `main` 创建 `feat/<模块>-<功能名>`
-- **Bug 修复**：从 `main` 创建 `fix/<问题描述>`
-- **合入流程**：功能开发完成 → 创建 PR → 至少 1 人 Review → 合并到 `main`
+### 车辆信息查询 `vehicles.html`
+- 按车牌号（精确）/ 日期范围（起止日期）筛选停车记录
+- 表格列：车牌 / 入库时间 / 出库时间 / 计费方式 / 费用 / 状态
+- 普通用户只看自己绑定的车牌（依赖 `RESERVATION.user_id` + `USER_PLATE` 关联）
+- 管理员可看全部，且支持导出 CSV
 
-### 日常开发流程
+### 预约管理 `reservation.html`
+- **顶部停车场标签切换**：`停车场 1`（标准网格布局）/ `停车场 2`（20 车位环形俯视图）
+- 创建预约：选择停车场 → 选择车位 → 选时段 → 预付首小时费用
+- 进行中预约展示（含到期倒计时）
+- 取消预约（预付费用不退，超时自动失效）
+- 历史预约归档
 
-```
-# 1. 拉取最新代码
-git checkout main
-git pull
+### 联系客服 `chat.html`
+- 类微信聊天界面：左侧会话对象信息，右侧消息气泡（按日期分组）
+- 3 秒自动轮询新消息，已读消息与未读消息视觉区分
+- Enter 键快速发送；图片 / 表情暂未支持
+- 后端：`/api/customer-service`
 
-# 2. 创建功能分支
-git checkout -b feat/vehicle-export
+### 个人中心 `profile.html`
+- 基本信息：手机号、真实姓名（保存即时校验）
+- 修改密码：当前密码 + 新密码两次输入
+- 余额明细：倒序展示最近交易流水
+- 我的月卡：在用月卡 / 已过期月卡分页
 
-# 3. 开发，频繁提交
-git add src/controller/vehicle_controller.cpp
-git commit -m "feat: 添加车辆导出 CSV 功能"
+### 车牌识别 `recognize.html`
+- **浏览器摄像头拍照**：getUserMedia 实时预览 → Canvas 抓帧 → base64 上传
+- **后端 RapidOCR 识别**：返回车牌号、置信度、车牌颜色
+- **自动登记状态查询**：是否已登记 / 是否有月卡 / 是否在黑名单 / 是否在场
+- **快速出入库**：识别成功后下拉选择入库或出库，一键完成
+- **手动查询**：手动输入车牌号查询登记信息
+- **识别历史**：本地存储最近 20 条识别记录
 
-# 4. 推送并创建 PR
-git push origin feat/vehicle-export
-# 浏览器中创建 Pull Request
+### 用户自助出入库 `user-checkin.html`
+- 列出登录用户已绑定的车牌
+- 每条车牌一键入库或出库（出库自动结算费用）
+- 历史出入库记录
 
-# 5. Review 通过后合并到 main
-```
+### 用户反馈 `feedback.html`
+- 用户向平台提交意见 / 反馈
+- 查看历史反馈与管理员回复（与「联系客服」共用消息通道）
 
-### 避免冲突的约定
+---
 
-1. **.h 文件改动需要通知所有人** — 头文件声明变更会影响所有包含它的 .cpp
-2. **Model 层大家一起维护** — 改模型字段需要在群里同步
-3. **前端各改各的页面** — HTML 和 JS 按页面分，基本不会冲突
-4. **公共工具（common.js / base_service）先讨论再改** — 涉及接口约定的改动需要达成一致
-5. **每天至少 git pull 一次** — 及时发现冲突，及时解决
+## 👨‍💼 管理端功能
 
-### 示例：多人并行开发
+> 角色：`admin` / `root`。登录后默认进入 `admin.html`，可访问全部用户端页面外加以下管理页面。
 
-假设你们要做三个功能：
+### 管理主页 `admin.html`（10 个 Tab）
 
-- A 改数据库连接池，需要改 `mysql_pool.h/cpp`
-- C 改车辆入库逻辑，需要改 `vehicle_service.h/cpp`
-- D 新增计费规则类型，需要改 `billing_service.h/cpp`
+| # | Tab | 能力 |
+|---|-----|------|
+| 1 | **用户管理** | 增 / 删 / 改用户，分配 `admin` 或 `user` 角色；按用户名 / 手机号搜索 |
+| 2 | **余额充值** | 选择用户 → 输入金额 → 备注说明，附余额变动记录流水 |
+| 3 | **套餐管理** | 增 / 删 / 改月卡 / 季卡 / 年卡套餐（名称 / 天数 / 价格 / 启停） |
+| 4 | **计费规则** | 编辑免费时长、小时费率、每日封顶；阶梯计费支持 JSON 配置；启用 / 停用 |
+| 5 | **车辆管理** | 查看所有车辆出入库记录；多停车场分页；支持搜索筛选与导出 |
+| 6 | **黑名单** | 添加 / 移除黑名单；查看拦截记录（含时间、原因）；统计拦截次数 |
+| 7 | **收入统计** | 今日 / 本月 / 总收入分项统计；停车费 / 套餐销售 / 预约预付拆分；近 30 天趋势图 |
+| 8 | **公告编辑** | 创建 / 编辑 / 删除公告；置顶控制；有效期 `valid_from` / `valid_until` |
+| 9 | **消息管理 / 用户反馈** | 同下 *客服中心* 详情 |
+| 10 | **系统设置** | 停车场名称、车位总数、小时费率、通知有效期；保存即时落库 |
 
-三个人各自从 main 开分支，改自己的 .cpp 文件。A 改了 mysql_pool.h 的接口声明，C 和 D 合代码时如果发现调用处需要更新，改对应的一两行就行。**不会出现两个人同时改同一个 300 行的大文件的情况。**
+### 代客出入库 `checkin.html`
+- 管理员为非自助用户提供「代客操作」入口
+- 输入车牌号、选择计费方式、关联用户 ID
+- 一次操作完成入 / 出库
 
-## 构建说明
+### 停车场管理 `parking.html`
+- 多停车场配置（增 / 删 / 改）
+- 标准网格车位图 vs 环形车位图切换
+- 单个车位状态：空闲 / 已占 / 已预约
 
-### 从零构建
+### 计费规则详细页 `billing-rules.html`
+- 完整编辑每个计费规则（标准 / 阶梯 / 会员 / 特殊）
+- 启用 / 停用、优先级排序
+- 阶梯计费的费率区间表（JSON 实时预览）
 
-```bash
-conan install . --output-folder=build --build=missing
-cmake -B build -S . --preset conan-default
-cmake --build build --config Release
-```
+### 客服中心 / 用户反馈 `conversations.html`
+- **会话列表**：按用户聚合，左侧展示用户头像 + 姓名 + 最新消息预览 + 未读数
+- **会话详情**：右上显示用户姓名 / 手机 / 角色 / 当前余额 / 注册时间，下方显示完整聊天记录（按日期分组）
+- **实时回复**：3 秒自动刷新，新消息标红；支持 Enter 快速发送
+- **多会话并行**：可同时处理多个用户，未处理会话高亮
+- 后端：`/api/customer-service/conversations`、`/api/customer-service/history`、`/api/customer-service/send`
 
-### 增量构建（开发时）
+### 管理员版车牌识别（`recognize.html`）
+- 与用户版共用，但额外提供拦截记录查询与黑名单快速加入入口
 
-```bash
-cmake --build build --config Release
-```
+---
 
-CMake 会自动检测修改过的 .cpp 文件，只重新编译对应的文件，然后链接。改动一个小的 service 文件通常在几秒内完成。
+## 角色 × 权限矩阵（摘录）
 
-### 只编译某个文件（检查语法）
+| 页面 | URL | user | admin |
+|------|-----|:----:|:-----:|
+| 登录 | `index.html` | ✓ | ✓ |
+| 注册 | `register.html` | ✓ | ✓ |
+| 主面板 | `dashboard.html` | ✓（按角色裁剪） | ✓ |
+| 个人中心 | `profile.html` | ✓ | ✓ |
+| 车辆查询 | `vehicles.html` | ✓（仅自己） | ✓ |
+| 预约 | `reservation.html` | ✓ | ✓ |
+| 联系客服 | `chat.html` | ✓ | — |
+| 用户反馈 | `feedback.html` | ✓ | — |
+| 车牌识别 | `recognize.html` | ✓ | ✓ |
+| 用户自助出入库 | `user-checkin.html` | ✓ | — |
+| 管理主页 | `admin.html` | — | ✓ |
+| 代客出入库 | `checkin.html` | — | ✓ |
+| 停车场配置 | `parking.html` | — | ✓ |
+| 计费规则 | `billing-rules.html` | — | ✓ |
+| 客服中心 | `conversations.html` | — | ✓ |
 
-```bash
-cl /c src/service/vehicle_service.cpp /I src /I third_party /I "C:/Program Files/MySQL/MySQL Server 8.0/include"
-```
+权限节点完整定义见源码 `src/permissions.h`，共 23 个权限位。
 
-## 环境要求
-
-- **操作系统**: Windows 10/11 或 Linux
-- **编译器**: MSVC 2022（Windows）或 GCC 9+ / Clang 10+（Linux）
-- **CMake**: >= 3.16
-- **Conan**: >= 2.0
-- **MySQL**: >= 8.0（需安装 C 开发库 / Connector/C）
-- **Git**: 用于克隆仓库
+---
 
 ## 快速开始（Windows + MSVC 2022）
 
-### 1. 安装 MySQL 8.0
+### 0. 前置条件
+- Windows 10 / 11
+- **MySQL 8.0**（安装时勾选 *Connector/C* 或单独安装 *MySQL Connector/C 6.1*）
+- **Visual Studio 2022**（含 *C++ 桌面开发* 工作负载）
+- **CMake ≥ 3.16**
+- **Conan ≥ 2.0**（`pip install conan`）
+- Git（用于克隆）
 
-安装 MySQL Server 8.0，安装时勾选 **"Development Libraries"** 或装完后单独安装 **Connector/C 6.1**：
-
-- 方式一：安装 [MySQL Installer](https://dev.mysql.com/downloads/windows/installer/8.0/)，选择 **"Developer Default"** 或自定义并勾选 **"MySQL Connector/C"**
-- 方式二：仅安装 [MySQL Connector/C](https://dev.mysql.com/downloads/connector/c/)（如果已有 MySQL Server）
-
-安装后确认以下目录存在（版本号可能略有不同）：
-
-- 头文件: `C:\Program Files\MySQL\MySQL Server 8.0\include`
-- 库文件: `C:\Program Files\MySQL\MySQL Server 8.0\lib`
-- DLL 文件: `C:\Program Files\MySQL\MySQL Server 8.0\lib\libmysql.dll`
-
-> 如果路径不同，构建前需修改 `CMakeLists.txt` 中的 `MYSQL_INCLUDE_DIR` 和 `MYSQL_LIB_DIR`。
-
-### 2. 安装 Conan 2
-
+### 1. 克隆仓库
 ```bash
-pip install conan
-conan --version  # 确认 >= 2.0
+git clone https://github.com/<your-account>/SmartParkingSystem.git
+cd SmartParkingSystem
 ```
 
-如果 `pip` 不可用，先安装 Python 3.8+，参见 [python.org](https://www.python.org/downloads/)。
-
-### 3. 克隆项目
-
-```bash
-git clone https://github.com/MC-June/SmartParking.git
-cd SmartParking
-```
-
-### 4. 安装 Conan 依赖
-
+### 2. 安装 Conan 依赖
 ```bash
 conan install . --output-folder=build --build=missing
 ```
+这一步会下载 Asio 1.28 并在 `build/` 下生成 `CMakePresets.json`。
 
-这将下载 Asio 1.28 并生成 CMake 预设文件到 `build/` 目录。
-
-### 5. 配置 CMake
-
+### 3. 准备数据库配置
+复制示例配置并填入真实凭据：
 ```bash
-cmake --preset conan-default
+cp config/db_config.example.json config/db_config.json
 ```
+> ⚠️ `config/db_config.json` 已被 `.gitignore` 排除，**永远不要提交你的真实凭据**。详见 [SECURITY.md](SECURITY.md)。
 
-如果 MySQL 路径与 CMakeLists.txt 默认值不同，可以先设置环境变量：
-
+### 4. 构建
 ```bash
-set MYSQL_INCLUDE_DIR=C:/Program Files/MySQL/MySQL Server 8.0/include
-set MYSQL_LIB_DIR=C:/Program Files/MySQL/MySQL Server 8.0/lib
-cmake --preset conan-default
+mkdir build && cd build
+cmake -G "Visual Studio 17 2022" -A x64 ^
+  -DCMAKE_BUILD_TYPE=Release ^
+  -DMYSQL_INCLUDE_DIR="C:/Program Files/MySQL/MySQL Server 8.0/include" ^
+  -DMYSQL_LIB_DIR="C:/Program Files/MySQL/MySQL Server 8.0/lib" ^
+  ..
+cmake --build . --config Release
 ```
+也可以直接双击 `build.bat`（已配置好调用 MSVC + Conan 缓存路径）。
 
-### 6. 构建
+构建产物：`build/Release/smart_parking.exe`，`frontend/` 与 `config/` 会被自动复制到同目录。
 
-```bash
-cmake --build --preset conan-release
-```
-
-构建完成后，可执行文件位于 `build/Release/smart_parking.exe`。构建系统会自动将 `frontend/` 和 `config/` 目录复制到可执行文件所在目录。
-
-### 7. 运行
-
+### 5. 启动
 ```bash
 cd build/Release
-smart_parking.exe
+./smart_parking.exe
 ```
 
-启动后终端会显示：
-
-```
-==========================================
-    Smart Parking 停车管理系统 v1.0
-==========================================
-
-[WARN] 数据库连接失败，请检查配置
-
-[OK] 服务启动于 http://localhost:8080
-[OK] 前端页面: http://localhost:8080/index.html
-[OK] 初始化向导: http://localhost:8080/init.html
-```
-
-首次运行由于没有配置文件，会先进入初始化向导。
-
-> **注意**: 程序启动时会从 `config/db_config.json` 加载配置。如果文件不存在或数据库连接失败，会显示警告但仍会启动服务器。未完成初始化前请不要关闭终端窗口。
-
-## 初始化（第一次使用）
-
+### 6. 初始化 + 首次登录
 1. 浏览器打开 `http://localhost:8080/init.html`
-2. 填写 MySQL 连接信息：
-   - **主机**: `localhost`
-   - **端口**: `3306`
-   - **数据库名**: `smart_parking`
-   - **用户名**: `root`
-   - **密码**: 你的 MySQL root 密码
-   - **停车场名称**: 如 `停车场1`
-   - **每小时费率**: 如 `5.00`
-   - **总车位数**: 如 `100`
-   - **服务端口**: `8080`
-3. 点击 **"初始化数据库"**
-4. 等待页面显示"初始化成功"，然后点击"进入系统"
-5. 使用默认管理员账号登录：**用户名** `admin`，**密码** `admin123`
+2. 填入 MySQL 连接信息 + 停车场设置，点击「开始初始化」
+3. 初始化成功后，默认管理员账号：  
+   **用户名：`admin`　　密码：`admin123`**  
+   ⚠️ **首次登录后请立即修改默认密码**。
 
-## 快速开始（Linux）
+### 7. 可选：Python OCR 桥接
+如需使用车牌识别功能：
+```bash
+pip install -r requirements.txt
+python src/ocr_server.py      # 启动 OCR 桥接
+python src/llm_bridge.py      # 启动 LLM 桥接（如使用智能客服回复）
+```
 
-### 1. 安装依赖
+---
+
+## 快速开始（Linux / WSL）
 
 ```bash
-# Ubuntu/Debian
 sudo apt update
-sudo apt install -y mysql-server mysql-client libmysqlclient-dev cmake g++ python3-pip
+sudo apt install -y mysql-server libmysqlclient-dev cmake g++ python3-pip
 pip install conan
 
-# 启动 MySQL
-sudo systemctl start mysql
-sudo systemctl enable mysql
-```
-
-### 2. 克隆、构建、运行
-
-```bash
-git clone https://github.com/MC-June/SmartParking.git
-cd SmartParking
+git clone https://github.com/<your-account>/SmartParkingSystem.git
+cd SmartParkingSystem
+cp config/db_config.example.json config/db_config.json
+# 编辑 config/db_config.json，填入真实凭据
 
 conan install . --output-folder=build --build=missing
-cmake --preset conan-default
-cmake --build --preset conan-release
+cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 
 cd build/Release
 ./smart_parking
 ```
 
+---
+
 ## 角色与权限
 
-初始化完成后使用以下账号登录：
+| 用户名 | 密码 | 角色 |
+|--------|------|------|
+| `admin` | `admin123` | 管理员（全部权限） |
 
-| 用户名 | 密码 | 角色 | 说明 |
-|--------|------|------|------|
-| `admin` | `admin123` | **管理员** | 全部权限，包括系统初始化 |
-| — | — | **普通用户** | 查看车位、预约、余额、联系客服、购买套餐 |
+普通用户（user）由管理员创建或自助注册，拥有 7 个权限：
+`parking.view`、`billing.view`、`reservation.create/cancel/view`、`balance.view`、`message.send`。
 
-管理员可在 **管理页面 → 用户管理** 中添加不同角色的用户。
+详细权限节点（23 个）见源码 `src/permissions.h`。
 
-### 权限节点
-
-共 23 个权限节点。管理员（admin/root）拥有全部权限，普通用户（user）拥有以下 7 个权限：`parking.view`、`billing.view`、`reservation.create`、`reservation.view`、`reservation.cancel`、`balance.view`、`message.send`。
-
-| 权限 | 说明 | admin/root | user |
-|------|------|:----------:|:----:|
-| `system.init` | 系统初始化 | ✓ | |
-| `user.view` | 查看用户列表 | ✓ | |
-| `user.manage` | 增删改用户 | ✓ | |
-| `parking.view` | 查看停车场状态 | ✓ | ✓ |
-| `parking.settings` | 修改停车场设置 | ✓ | |
-| `billing.view` | 查看计费规则 | ✓ | ✓ |
-| `billing.manage` | 编辑计费规则 | ✓ | |
-| `vehicle.checkin` | 车辆入库 | ✓ | |
-| `vehicle.checkout` | 车辆出库 | ✓ | |
-| `vehicle.query` | 查询停车记录 | ✓ | |
-| `vehicle.delete` | 删除记录 | ✓ | |
-| `vehicle.export` | 导出数据 | ✓ | |
-| `reservation.create` | 创建预约 | ✓ | ✓ |
-| `reservation.view` | 查看预约 | ✓ | ✓ |
-| `reservation.cancel` | 取消预约 | ✓ | ✓ |
-| `plate.recognize` | 车牌识别 | ✓ | |
-| `balance.view` | 查看余额 | ✓ | ✓ |
-| `balance.manage` | 余额充值管理 | ✓ | |
-| `passplan.manage` | 套餐管理 | ✓ | |
-| `vehicle.blacklist` | 黑名单管理 | ✓ | |
-| `report.view` | 查看统计报表 | ✓ | |
-| `notice.manage` | 编辑公告 | ✓ | |
-| `message.send` | 发送/查看消息 | ✓ | ✓ |
-| `message.manage` | 管理用户反馈 | ✓ | |
-
-## 用户端功能
-
-### 主面板（Dashboard）
-- **车位状态** — 总车位、已占用、已预约、剩余车位实时统计，ECharts 饼图可视化
-- **车辆入库/出库** — 操作员/管理员可直接输入车牌号操作，支持选择计费方式
-- **套餐购买** — 浏览月卡/季卡/年卡套餐，余额一键购买
-- **自助充值** — 选择预设金额（¥50/100/200/500）或自定义金额充值
-- **我的车辆** — 添加常用车牌号，查看停放状态，一键入库/出库
-- **余额与交易记录** — 查看余额和最近交易明细
-- **最近记录** — 查看最近车辆出入记录
-- **公告栏** — 查看系统公告
-- **联系客服** — 在线与管理员沟通
-
-### 车辆信息查询
-- 按车牌号、日期范围搜索停车记录
-- 查看每次出入库时间、费用、计费方式
-
-### 预约管理
-- 在线预约车位，预付首小时费用
-- **多停车场标签切换** — 预约页面顶部标签切换不同停车场（停车场1 标准网格布局 / 停车场2 环形布局）
-- 查看预约列表及剩余有效时间
-- 取消预约（预付不退）
-
-### 联系客服
-- 与管理员实时在线沟通（类微信聊天界面）
-- 自动 3 秒轮询新消息
-- 消息按日期分组，区分发送/接收方向
-- 支持 Enter 键快速发送
-
-### 个人中心
-- 查看和修改个人信息（手机号、真实姓名）
-- 修改密码
-- 余额明细
-- 月卡列表
-
-### 车牌识别
-- **摄像头拍照识别** — 开启设备摄像头，实时预览，一键拍照上传
-- **OCR 车牌识别** — 后端 RapidOCR 识别车牌号、置信度、车牌颜色
-- **登记状态查询** — 识别后自动查询车辆是否已登记、是否在场内、是否有月卡、是否在黑名单
-- **快速出入库** — 识别成功后一键完成入库或出库操作
-- **手动查询** — 手动输入车牌号查询登记信息
-- **识别历史** — 本地保存最近 20 条识别记录
-
-### 管理页面
-- **用户管理** — 添加/编辑/删除用户，分配角色
-- **余额充值** — 选择用户，输入金额，备注说明
-- **套餐管理** — 添加/编辑/删除月卡套餐
-- **计费规则** — 编辑免费时长、费率、日封顶、启用/禁用
-- **车辆管理** — 查看所有车辆状态，出库操作，筛选
-- **月卡管理** — 查看/添加/编辑/停用月卡
-- **黑名单** — 添加/移除黑名单车辆
-- **收入统计** — 今日/本月/总收入趋势图
-- **公告管理** — 创建/编辑/删除公告，支持置顶和有效期设置
-- **用户反馈** — 查看所有用户会话列表（按最新消息排序），选择会话查看用户基本信息（姓名/手机/角色/余额/注册时间）和完整聊天记录，实时回复用户（3秒自动刷新，未读消息计数）
-
-## 构建选项
-
-### Debug 构建
-
-```bash
-cmake --build --preset conan-debug
-```
-
-### 自定义 MySQL 路径
-
-```bash
-cmake --preset conan-default \
-  -DMYSQL_INCLUDE_DIR="D:/MySQL/include" \
-  -DMYSQL_LIB_DIR="D:/MySQL/lib"
-```
-
-## 常见问题
-
-### build/CMakePresets.json 不存在
-
-Conan 安装步骤被跳过或失败。运行：
-
-```bash
-conan install . --output-folder=build --build=missing
-```
-
-这会生成 `build/CMakePresets.json`。
-
-### 找不到 mysqlclient.lib / libmysql.dll
-
-确认 MySQL Connector/C 已安装，且路径匹配 `CMakeLists.txt` 中的默认值：
-
-```bash
-cmake --preset conan-default \
-  -DMYSQL_INCLUDE_DIR="C:/Program Files/MySQL/MySQL Connector C 6.1/include" \
-  -DMYSQL_LIB_DIR="C:/Program Files/MySQL/MySQL Connector C 6.1/lib/vs14"
-```
-
-### 运行时提示 "数据库连接失败"
-
-- 检查 MySQL 服务是否在运行
-- 检查用户名密码是否正确
-- 检查 `config/db_config.json` 是否存在且配置正确
-- 如果尚未初始化，打开 `http://localhost:8080/init.html` 完成初始化
-
-### 前端页面无法加载（404）
-
-确保工作目录正确，程序需要能访问到 `frontend/` 和 `config/` 目录。从 `build/Release/` 目录运行可执行文件。
-
-### 端口被占用
-
-修改 `config/db_config.json` 中的 `server_port` 字段，或重新通过初始化向导设置。修改后重启程序。
+---
 
 ## 配置文件
 
-配置文件 `config/db_config.json` 会在初始化时自动生成，也可手动创建：
+`config/db_config.json`（首次运行时通过 `init.html` 生成，也可手动创建）：
 
 ```json
 {
-    "host": "localhost",
-    "port": 3306,
-    "database": "smart_parking",
-    "user": "root",
-    "password": "your_password",
-    "parking_name": "停车场1",
-    "fee": 5.00,
-    "capacity": 100,
-    "server_port": 8080,
+    "host":            "localhost",
+    "port":            3306,
+    "database":        "smart_parking",
+    "user":            "root",
+    "password":        "your_password",
+    "parking_name":    "智慧停车场",
+    "fee":              5.00,
+    "capacity":         100,
+    "server_port":      8080,
     "notice_expire_minutes": 30,
-    "notice": "欢迎使用停车场管理系统！\n请遵守停车场管理规定，文明停车。"
+    "notice":          "欢迎使用智慧停车场管理系统！",
+    "llm_base_url":    "http://your-llm-host:port",
+    "llm_model":       "your-model-name",
+    "llm_api_key":     "your_llm_api_key"
 }
 ```
 
+⚠️ 完整示例见 `config/db_config.example.json`（占位符版本，可安全提交）。
+
+---
+
 ## API 参考
 
-所有 API 返回 JSON 格式，认证接口使用 Bearer Token（`Authorization: Bearer <token>`）。
+所有 API 返回 JSON，认证接口使用 Bearer Token：`Authorization: Bearer <token>`。
 
-### 认证 `/api/auth`
+| 模块 | 路径前缀 | 关键端点 |
+|------|----------|----------|
+| 认证 | `/api/auth` | `POST /login`、`POST /register`、`POST /logout`、`GET /check` |
+| 车辆 | `/api/vehicle` | `POST /checkin`、`POST /checkout`、`GET /query`、`GET /parked`、`GET /export` |
+| 停车场 | `/api/parking` | `GET /list`、`GET /status`、`GET /stats`、`PUT /settings`、月卡 CRUD |
+| 用户 | `/api/user` | `GET /list`、`POST /add`、`PUT /update`、`DELETE /<id>` |
+| 预约 | `/api/reservation` | `POST /create`、`GET /list`、`GET /history`、`DELETE /<id>` |
+| 余额 | `/api/balance` | `GET /my`、`POST /recharge`、`POST /deposit`、交易记录 |
+| 套餐 | `/api/pass-plans` | `GET /`、`POST /<id>/purchase` |
+| 消息 | `/api/message` | `POST /send`、`GET /history`、`GET /conversations`、`GET /unread-count` |
+| 车牌识别 | `/api/plate` | `POST /recognize`、`POST /recognize-image`、`POST /check-registered` |
+| 黑名单 | `/api/blacklist` | 列表 / 增删 / 拦截记录 |
+| 报表 | `/api/report` | `GET /summary`、`GET /daily`、`GET /export`、`GET /prediction` |
+| 公告 | `/api/bulletin` | 增删改查、置顶、有效期 |
+| 客服 | `/api/customer-service` | 会话列表、消息发送、标记已读 |
+| 初始化 | `/api/init` | `GET /status`、`POST /database` |
 
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| POST | `/api/auth/login` | 公开 | 用户登录，返回 Token |
-| POST | `/api/auth/register` | 公开 | 用户注册 |
-| POST | `/api/auth/logout` | 认证 | 登出 |
-| GET | `/api/auth/check` | 认证 | 校验 Token 有效性 |
+完整请求/响应参数请参考各 controller 内的路由宏。
 
-### 车辆 `/api/vehicle`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| POST | `/api/vehicle/checkin` | `vehicle.checkin` | 车辆入库 |
-| POST | `/api/vehicle/checkout` | `vehicle.checkout` | 车辆出库（计费+扣款） |
-| GET | `/api/vehicle/query` | `vehicle.query` | 查询停车记录 |
-| GET | `/api/vehicle/parked` | `vehicle.query` | 当前在场车辆列表 |
-| GET | `/api/vehicle/status` | 认证 | 所有车辆停放状态 |
-| DELETE | `/api/vehicle/<id>` | `vehicle.delete` | 删除记录 |
-| GET | `/api/vehicle/export` | `vehicle.export` | 导出 CSV |
-
-### 停车场 `/api/parking`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/parking/list` | 认证 | 停车场列表 |
-| GET | `/api/parking/status` | `parking.view` | 停车场实时状态（含 notice_expire_minutes） |
-| GET | `/api/parking/stats` | `parking.view` | 饼图统计数据 |
-| PUT | `/api/parking/settings` | `parking.settings` | 更新费率/容量 |
-| GET | `/api/parking/billing-rules` | `billing.view` | 获取计费规则列表 |
-| PUT | `/api/parking/billing-rules/<id>` | `billing.manage` | 更新计费规则 |
-| GET/POST/PUT/DELETE | `/api/parking/monthly-passes` | 视操作 | 月卡 CRUD |
-
-### 用户 `/api/user`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/user/list` | `user.view` | 用户列表 |
-| POST | `/api/user/add` | `user.manage` | 添加用户 |
-| PUT | `/api/user/update` | `user.manage` | 更新用户 |
-| DELETE | `/api/user/<id>` | `user.manage` | 删除用户 |
-
-### 预约 `/api/reservation`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| POST | `/api/reservation/create` | `reservation.create` | 创建预约 |
-| GET | `/api/reservation/list` | `reservation.view` | 预约列表 |
-| GET | `/api/reservation/history` | `reservation.view` | 预约历史 |
-| GET | `/api/reservation/spots` | `parking.view` | 车位状态（?P_name=停车场名） |
-| DELETE | `/api/reservation/<id>` | `reservation.cancel` | 取消预约 |
-
-### 余额 `/api/balance`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/balance` | `balance.view` | 我的余额和交易记录 |
-| GET | `/api/balance/my` | 认证 | 当前用户余额信息 |
-| GET | `/api/balance/<id>` | `balance.manage` | 指定用户余额 |
-| POST | `/api/balance/recharge` | `balance.manage` | 管理员充值 |
-| POST | `/api/balance/deposit` | 认证 | 自助充值（1~10000元） |
-| POST | `/api/balance/calculate-fee` | `balance.manage` | 预估停车费用 |
-| POST | `/api/balance/parking-deduct` | 认证 | 停车费扣款 |
-| GET | `/api/balance/transactions` | `balance.manage` | 全部交易记录 |
-
-### 套餐 `/api/pass-plans`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/pass-plans` | 认证 | 可用套餐列表 |
-| POST | `/api/pass-plans` | `passplan.manage` | 添加套餐 |
-| PUT | `/api/pass-plans/<id>` | `passplan.manage` | 更新套餐 |
-| DELETE | `/api/pass-plans/<id>` | `passplan.manage` | 删除套餐 |
-| POST | `/api/pass-plans/<id>/purchase` | 认证 | 购买套餐（余额扣款） |
-
-### 消息 `/api/message`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| POST | `/api/message/send` | `message.send` | 发送消息（receiver_id=0 为发给管理员） |
-| GET | `/api/message/conversations` | `message.manage` | 管理员获取会话列表（含用户信息+未读数） |
-| GET | `/api/message/history` | `message.send` | 获取与指定用户的聊天记录（?user_id=X） |
-| POST | `/api/message/mark-read` | `message.send` | 标记消息为已读 |
-| GET | `/api/message/unread-count` | `message.send` | 获取当前用户未读消息数 |
-
-### 车牌识别 `/api/plate`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| POST | `/api/plate/recognize` | `plate.recognize` | 车牌识别（文本） |
-| POST | `/api/plate/recognize-image` | `plate.recognize` | 摄像头拍照识别（base64 图片）+ 登记状态查询 |
-| POST | `/api/plate/check-registered` | 认证 | 手动查询车牌登记状态 |
-| POST | `/api/plate/validate` | 认证 | 车牌格式校验 |
-
-### 黑名单 `/api/blacklist`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/blacklist` | `vehicle.blacklist` | 黑名单列表 |
-| POST | `/api/blacklist` | `vehicle.blacklist` | 添加黑名单 |
-| DELETE | `/api/blacklist/<id>` | `vehicle.blacklist` | 移除黑名单 |
-| GET | `/api/blacklist/interceptions` | `vehicle.blacklist` | 拦截记录列表 |
-| GET | `/api/blacklist/interceptions/count` | `vehicle.blacklist` | 拦截次数统计 |
-
-### 报表 `/api/report`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/report/summary` | `report.view` | 收入汇总 |
-| GET | `/api/report/daily` | `report.view` | 近30天收入趋势 |
-| GET | `/api/report/export` | `report.view` | 导出收入报表 CSV |
-| GET | `/api/report/prediction` | `report.view` | 收入预测数据 |
-
-### 公告 `/api/bulletin`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/bulletin` | 认证 | 获取当前有效公告 |
-| GET | `/api/bulletin/all` | `notice.manage` | 所有公告列表 |
-| POST | `/api/bulletin` | `notice.manage` | 创建公告 |
-| PUT | `/api/bulletin/<id>` | `notice.manage` | 更新公告 |
-| DELETE | `/api/bulletin/<id>` | `notice.manage` | 删除公告 |
-
-### 系统 `/api/init`
-
-| 方法 | 路径 | 权限 | 说明 |
-|------|------|------|------|
-| GET | `/api/init/status` | 公开 | 系统初始化状态 |
-| POST | `/api/init/database` | 公开/root | 初始化数据库 |
+---
 
 ## 数据库表
 
 | 表名 | 说明 |
 |------|------|
-| `USER` | 用户表（id/username/password/telephone/truename/role/balance/created_at） |
+| `USER` | 用户（id/username/password/telephone/truename/role/balance/created_at） |
 | `PARKING_LOT` | 停车场（P_id/P_name/P_total_count/P_current_count/P_reserve_count/P_fee） |
-| `CAR_RECORD` | 停车记录（含 check_in/check_out/fee/billing_type/reservation_id） |
-| `RESERVATION` | 预约记录（触发器自动更新预约计数） |
+| `CAR_RECORD` | 停车记录（check_in/check_out/fee/billing_type/reservation_id） |
+| `RESERVATION` | 预约（触发器自动更新预约计数） |
 | `BILLING_RULE` | 计费规则（free_minutes/hourly_rate/max_daily_fee/tier_config） |
 | `MONTHLY_PASS` | 月卡（license_plate/pass_type/start_date/end_date/fee/is_active） |
 | `PASS_PLAN` | 套餐定义（plan_name/duration_days/price/is_active） |
-| `BALANCE_RECORD` | 余额变动记录（user_id/amount/type/description/balance_after） |
+| `BALANCE_RECORD` | 余额变动记录 |
 | `VEHICLE_BLACKLIST` | 黑名单（license_plate/reason） |
-| `INTERCEPTION_LOG` | 黑名单拦截记录（license_plate/reason/intercepted_at） |
+| `INTERCEPTION_LOG` | 黑名单拦截记录 |
 | `BULLETIN` | 公告（content/is_pinned/valid_from/valid_until/created_at） |
 | `MESSAGE` | 在线客服消息（sender_id/receiver_id/content/created_at/is_read） |
 
+完整表结构见 `sql/init.sql`。
+
+---
+
 ## 待扩展功能
 
-- [x] 车牌识别（浏览器摄像头 + RapidOCR Python 桥接 + 登记状态查询 + 快速出入库）
+- [x] 车牌识别（浏览器摄像头 + RapidOCR 桥接 + 登记状态查询 + 快速出入库）
 - [x] 多停车场支持（预约页面标签切换，含环形车位图）
-- [ ] 支付接口对接（微信/支付宝）
+- [x] 在线客服（用户 ↔ 管理员，会话列表 + 实时轮询 + 未读计数）
+- [x] 月卡套餐 + 自动续期 / 到期校验
+- [x] 用户自助出入库（`user-checkin.html`，登录用户一键操作已绑定车牌）
+- [x] 服务端共享工具库（`src/util/`，10 模块）
+- [ ] 支付接口对接（微信 / 支付宝）
 - [ ] Docker 容器化部署
-- [ ] 单元测试与集成测试
-- [ ] WebSocket 实时推送（替代前端轮询）
+- [ ] 单元测试与集成测试（当前已完成核心手工冒烟测试）
+- [ ] WebSocket 实时推送（替代前端 3 秒轮询）
 - [ ] 停车记录图片留存
+- [ ] 国际化（i18n）：目前界面文案为简体中文
+
+---
+
+## 贡献
+
+欢迎 PR / Issue。提 PR 前请阅读 [SECURITY.md](SECURITY.md)——尤其注意**绝不要提交任何真实凭据**。
+
+开发约定：
+- C++ 代码遵循 `.clang-format`（若存在）；头文件改动需在 PR 描述中明示
+- 前端按页面分文件（HTML + 同名 JS），避免冲突
+- 公共工具（`src/util/*`、`frontend/js/common.js`）改动需先讨论
+
+---
+
+## 许可证
+
+本项目以 **MIT License** 发布，详见 [LICENSE](LICENSE)。
+第三方依赖（`third_party/`）保留各自原始许可证（Crow、Asio 等）。
+
+---
+
+## 致谢
+
+- [CrowCpp/Crow](https://github.com/CrowCpp/Crow) — Header-only C++ Web 框架
+- [RapidOCR](https://github.com/RapidAI/RapidOCR) — 跨平台 OCR
+- [ECharts](https://echarts.apache.org/) — 前端可视化

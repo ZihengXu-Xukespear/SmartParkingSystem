@@ -231,10 +231,16 @@ double BillingService::calculateParkingFee(time_t inTime, time_t outTime, std::s
     long long chargeMinutes = totalMinutes - rule.free_minutes;
 
     double hours = std::ceil(chargeMinutes / 60.0);
+    if (hours < 1.0) hours = 1.0;
     double fee = hours * rule.hourly_rate;
 
-    if (fee > rule.max_daily_fee) {
-        fee = rule.max_daily_fee;
+    // Per-day cap: each 24-hour period is capped independently, so multi-day
+    // parking scales with the number of days (e.g. 2 days => 2 * max_daily_fee).
+    if (rule.max_daily_fee > 0) {
+        double num_days = std::ceil(hours / 24.0);
+        if (num_days < 1.0) num_days = 1.0;
+        double total_cap = num_days * rule.max_daily_fee;
+        if (fee > total_cap) fee = total_cap;
     }
 
     return fee;
